@@ -33,9 +33,25 @@ The Shortcut should return only:
 1. Optional `Set VPN` or Tailscale-connect step
 2. Show the approval summary and available decisions
 3. Return the chosen decision to the local CRA broker over a private channel such as Tailscale + SSH
-4. Surface explicit errors for stale requests, duplicate taps, or transport failures
+4. Recommended SSH target:
+
+```bash
+python3 -m cra.cli broker-respond --request-id <request_id> --decision <decision>
+```
+
+5. Surface explicit errors for stale requests, duplicate taps, or transport failures
 
 The Shortcut should not decide how Codex is actuated locally. It should only return the decision to the broker.
+
+## Broker Runtime Commands
+
+Use these repo-local commands while the App Server broker path is being integrated:
+
+```bash
+python3 -m cra.cli broker-service --prompt "Run git status and wait for approval"
+python3 -m cra.cli broker-pending
+python3 -m cra.cli build-broker-response-ssh-command --request-id <request_id> --decision decline
+```
 
 ## Fallback Prototype Path
 

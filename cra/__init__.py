@@ -7,6 +7,7 @@ __all__ = [
     "watcher",
     "app_server",
     "broker",
+    "broker_service",
     "actuator",
     "audit",
     "shortcuts",

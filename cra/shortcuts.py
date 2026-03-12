@@ -97,6 +97,29 @@ def build_ssh_command(
     return "cd " + shlex.quote(str(repo_root)) + " && " + shlex.join(command)
 
 
+def build_broker_response_ssh_command(
+    request_id: str,
+    decision: str,
+    *,
+    runtime_dir: Path | None = None,
+    python_path: str = "python3",
+) -> str:
+    repo_root = _repo_root()
+    command = [
+        python_path,
+        "-m",
+        "cra.cli",
+        "broker-respond",
+        "--request-id",
+        request_id,
+        "--decision",
+        decision,
+    ]
+    if runtime_dir is not None:
+        command.extend(["--runtime-dir", str(runtime_dir)])
+    return "cd " + shlex.quote(str(repo_root)) + " && " + shlex.join(command)
+
+
 def handle_shortcut_entry(
     decision: str,
     action_id: str,

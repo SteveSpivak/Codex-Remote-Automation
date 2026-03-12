@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cra.shortcuts import build_shortcuts_command, build_ssh_command, handle_shortcut_entry
+from cra.shortcuts import (
+    build_broker_response_ssh_command,
+    build_shortcuts_command,
+    build_ssh_command,
+    handle_shortcut_entry,
+)
 
 
 class ShortcutsTests(unittest.TestCase):
@@ -61,6 +66,17 @@ class ShortcutsTests(unittest.TestCase):
 
             records = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
             self.assertEqual([record["record_type"] for record in records], ["shortcut_request", "shortcut_result"])
+
+    def test_build_broker_response_ssh_command_targets_broker_respond(self) -> None:
+        command = build_broker_response_ssh_command(
+            "req-123",
+            "decline",
+            runtime_dir=Path("var/run"),
+        )
+        self.assertIn("python3 -m cra.cli broker-respond", command)
+        self.assertIn("--request-id req-123", command)
+        self.assertIn("--decision decline", command)
+        self.assertIn("--runtime-dir var/run", command)
 
 
 if __name__ == "__main__":

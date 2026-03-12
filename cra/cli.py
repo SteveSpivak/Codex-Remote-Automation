@@ -20,8 +20,19 @@ from .broker import (
     replay_messages,
     summarize_broker_audit,
 )
+from .broker_service import (
+    default_broker_runtime_paths,
+    enqueue_broker_response,
+    read_runtime_state,
+    run_broker_service,
+)
 from .discovery import SENTRY_SCOPE_PATH, discover_codex_environment
-from .shortcuts import build_ssh_command, handle_shortcut_entry, run_shortcut
+from .shortcuts import (
+    build_broker_response_ssh_command,
+    build_ssh_command,
+    handle_shortcut_entry,
+    run_shortcut,
+)
 from .ui_probe import parse_probe_output, run_probe
 from .validation import build_actuation_request, build_approval_event
 from .vision import capture_codex_window_ocr, find_text_target
@@ -144,6 +155,42 @@ def main() -> int:
         help="Summarize broker audit streams under var/audit.",
     )
     broker_summarize_parser.add_argument("--audit-dir", default="var/audit")
+
+    broker_service_parser = subparsers.add_parser(
+        "broker-service",
+        help="Run a long-lived App Server broker session with file-backed pending state.",
+    )
+    broker_service_parser.add_argument("--prompt", required=True)
+    broker_service_parser.add_argument("--cwd", default=str(_repo_root()))
+    broker_service_parser.add_argument("--approval-policy", default="unlessTrusted")
+    broker_service_parser.add_argument("--sandbox-policy", default="workspaceWrite")
+    broker_service_parser.add_argument("--timeout", type=float, default=300.0)
+    broker_service_parser.add_argument("--poll-interval", type=float, default=0.5)
+    broker_service_parser.add_argument("--runtime-dir", default="var/run")
+    broker_service_parser.add_argument("--audit-dir", default="var/audit")
+
+    broker_pending_parser = subparsers.add_parser(
+        "broker-pending",
+        help="Read the file-backed broker runtime state and print pending approvals.",
+    )
+    broker_pending_parser.add_argument("--runtime-dir", default="var/run")
+
+    broker_respond_parser = subparsers.add_parser(
+        "broker-respond",
+        help="Queue an approval decision for a running broker service.",
+    )
+    broker_respond_parser.add_argument("--request-id", required=True)
+    broker_respond_parser.add_argument("--decision", required=True, choices=["accept", "acceptForSession", "decline", "cancel"])
+    broker_respond_parser.add_argument("--runtime-dir", default="var/run")
+
+    broker_ssh_command_parser = subparsers.add_parser(
+        "build-broker-response-ssh-command",
+        help="Build the SSH command string for a Shortcut to return a broker decision.",
+    )
+    broker_ssh_command_parser.add_argument("--request-id", required=True)
+    broker_ssh_command_parser.add_argument("--decision", required=True, choices=["accept", "acceptForSession", "decline", "cancel"])
+    broker_ssh_command_parser.add_argument("--runtime-dir")
+    broker_ssh_command_parser.add_argument("--python-path", default="python3")
 
     args = parser.parse_args()
 
@@ -298,6 +345,53 @@ def main() -> int:
 
     if args.command == "broker-summarize":
         _json_print(summarize_broker_audit(default_broker_audit_paths(Path(args.audit_dir))))
+        return 0
+
+    if args.command == "broker-pending":
+        runtime_paths = default_broker_runtime_paths(runtime_dir=Path(args.runtime_dir))
+        _json_print(read_runtime_state(runtime_paths.state_path))
+        return 0
+
+    if args.command == "broker-respond":
+        runtime_paths = default_broker_runtime_paths(runtime_dir=Path(args.runtime_dir))
+        _json_print(
+            enqueue_broker_response(
+                request_id=args.request_id,
+                decision=args.decision,
+                runtime_paths=runtime_paths,
+            )
+        )
+        return 0
+
+    if args.command == "build-broker-response-ssh-command":
+        runtime_dir = Path(args.runtime_dir) if args.runtime_dir else None
+        print(
+            build_broker_response_ssh_command(
+                args.request_id,
+                args.decision,
+                runtime_dir=runtime_dir,
+                python_path=args.python_path,
+            )
+        )
+        return 0
+
+    if args.command == "broker-service":
+        timeout = args.timeout if args.timeout > 0 else None
+        runtime_paths = default_broker_runtime_paths(
+            runtime_dir=Path(args.runtime_dir),
+            audit_dir=Path(args.audit_dir),
+        )
+        _json_print(
+            run_broker_service(
+                prompt=args.prompt,
+                cwd=Path(args.cwd),
+                runtime_paths=runtime_paths,
+                approval_policy=args.approval_policy,
+                sandbox_policy=args.sandbox_policy,
+                timeout=timeout,
+                poll_interval=args.poll_interval,
+            )
+        )
         return 0
 
     if args.command == "broker-demo":
