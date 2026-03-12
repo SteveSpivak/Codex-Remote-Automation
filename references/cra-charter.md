@@ -1,16 +1,16 @@
 # Project Charter: Codex Remote Automation (CRA)
-**Version:** 1.0  
+**Version:** 2.0  
 **Status:** Active  
 **Owner:** Steve Spivak  
-**Last updated:** 2026-03-12
+**Last updated:** 2026-03-13
 
 ---
 
 ## 1. Problem Statement
 
-Autonomous coding agents (Codex) can execute high-stakes actions — force-pushes, destructive file operations, runaway API loops — without human review. Leaving an agent running unattended requires either accepting that risk or staying at the keyboard. Neither is acceptable at scale.
+Codex can surface high-stakes approval points while working across files, commands, and long-running tasks. A human should be able to review and decide on those approvals from an iPhone without staying at the Mac and without relying on brittle desktop-button automation as the primary control plane.
 
-Project CRA solves this by inserting a real-time human-in-the-loop (HITL) gate into the Codex execution path, operable from an iPhone anywhere in the world with sub-second feedback latency.
+Project CRA solves this by inserting a local approval broker between Codex and the operator. The broker consumes Codex approval events through `codex app-server`, normalizes them into a mobile-safe contract, delivers them to the iPhone, and returns the operator's decision back to Codex over a private channel.
 
 ---
 
@@ -18,16 +18,18 @@ Project CRA solves this by inserting a real-time human-in-the-loop (HITL) gate i
 
 | Goal | Measurable outcome |
 |------|--------------------|
-| Real-time agent approval from iOS | Approve/deny any Codex action within 2 seconds of notification |
-| Sub-0.5s feedback loop | iPhone tap → Mac execution in < 500ms (P95) |
+| Real-time Codex approval from iOS | Approve or decline any Codex approval request within 2 seconds of notification |
+| Sub-0.5s feedback loop | iPhone tap -> broker response in < 500ms (P95) |
+| Protocol-first control plane | Primary path uses App Server approval events, not GUI scraping |
 | Zero exposed attack surface | No open router ports; no public-internet SSH; no cloud-sync polling |
-| Daemon stability | Watcher uptime ≥ 99.9%; auto-restart on failure |
-| Minimal system overhead | Watcher CPU < 1%; RAM < 50MB idle |
+| Stable replay and validation | Approval transcripts can be replayed and tested with `codex exec --json` or App Server fixtures |
 
 ### Non-goals
+
 - Building a general remote-control framework for arbitrary macOS apps
-- Replacing the Codex UI or modifying Codex internals
-- Supporting multiple simultaneous approvers
+- Making desktop Accessibility or OCR the primary approval path
+- Removing the human approval gate
+- Supporting multiple simultaneous approvers in v1
 
 ---
 
@@ -35,94 +37,109 @@ Project CRA solves this by inserting a real-time human-in-the-loop (HITL) gate i
 
 ### 3.1 Topology
 
-```
-Codex (macOS)
-    ↓ stdout / log file
-Watcher Daemon (Python, launchd)
-    ↓ JSON webhook
-Pushcut / Pushover API → APNs → iPhone notification
-    ↓ user taps Approve / Deny
-iOS Shortcut
-    ↓ SSH over Tailscale (WireGuard, MagicDNS)
-macOS sshd
-    ↓ AppleScript / JXA actuator
-Codex UI action executed
+```text
+Codex (macOS, App Server)
+    ↓ JSON-RPC approval request
+CRA broker (local)
+    ↓ sanitized mobile approval payload
+iPhone approval surface
+    ↓ private decision transport (Tailscale SSH or equivalent)
+CRA broker
+    ↓ JSON-RPC approval response
+Codex continues
 ```
 
-### 3.2 Outbound path (Codex → iPhone)
+`codex exec --json` is the secondary surface for replay fixtures, contract validation, and long-horizon testing. The existing Accessibility/OCR tooling remains available as fallback and discovery support only.
 
-- Watcher uses Python `watchdog` (FSEvents on macOS) to tail Codex log output — zero UI scraping, near-zero CPU
-- On approval-required event: constructs a sanitized JSON payload and POSTs to Pushcut/Pushover webhook
-- Payload schema:
-  ```json
-  {
-    "action_id": "<uuid4>",
-    "context": "<agent intention, human-readable>",
-    "risk_level": "low | medium | high",
-    "timestamp": "<ISO8601>"
-  }
-  ```
-- `action_id` is a UUID4 generated per event — prevents replay attacks
-- Debounce window: 200ms minimum between notifications for the same action
+### 3.2 Canonical approval request
 
-### 3.3 Inbound path (iPhone → Codex)
+```json
+{
+  "request_id": "<opaque approval callback id>",
+  "thread_id": "<codex thread id>",
+  "turn_id": "<codex turn id>",
+  "item_id": "<approval item id>",
+  "kind": "command_execution | file_change",
+  "summary": "<sanitized operator-facing summary>",
+  "available_decisions": ["accept", "acceptForSession", "decline", "cancel"],
+  "timestamp": "<ISO8601>"
+}
+```
 
-- iOS Shortcut receives Pushcut webhook payload, parses `action_id` and decision
-- Executes SSH command over Tailscale to macOS: `ssh codex-mac@<macbook>.tailnet.ts.net`
-- macOS receives command, runs AppleScript/JXA actuator that clicks the appropriate Codex UI element
-- Total target latency: < 500ms from tap to execution
+- `request_id` is the canonical response handle
+- `thread_id`, `turn_id`, and `item_id` preserve Codex protocol identity for audit and replay
+- `summary` must be sanitized before it is shown on the phone or logged
 
-### 3.4 Network security
+### 3.3 Canonical approval response
 
-- **Tailscale** (WireGuard) provides the secure tunnel — no port forwarding, no DDNS, no public exposure
-- **Tailscale ACLs** restrict the iPhone node to port 22 on the Codex Mac only
-- **SSH**: Ed25519 keys only; `PasswordAuthentication no`; `PermitRootLogin no`
-- The Mac is not reachable from the public internet at any point
+```json
+{
+  "request_id": "<opaque approval callback id>",
+  "decision": "accept | acceptForSession | decline | cancel"
+}
+```
 
-### 3.5 Explicitly rejected alternatives
+### 3.4 Mobile and transport path
+
+- iPhone Shortcuts remains the primary operator surface
+- Tailscale and SSH remain acceptable private return channels when the decision needs to reach the local broker from off-network
+- Third-party notification relays such as Pushcut or Pushover are optional adapters, not the canonical architecture
+- The transport returns a decision to the broker; it does not drive the Codex desktop UI directly
+
+### 3.5 Fallback path
+
+- Accessibility, AppleScript, and OCR helpers are retained for discovery, emergency fallback, and protocol-gap investigation
+- Fallback tooling may use `action_id`, `AXDescription`, or OCR text targeting within the prototype code under `cra/` and `references/discovery/`
+- Fallback tooling must be explicitly labeled as fallback in documentation and operator runbooks
+
+### 3.6 Explicitly rejected alternatives
 
 | Alternative | Reason rejected |
 |-------------|-----------------|
-| iCloud / Dropbox / Google Drive polling | 5–120s sync latency; file collision risk; polling limits |
-| macOS Accessibility tree scraping | Brittle across app updates; battery drain; high CPU |
-| Dynamic DNS + router port forward | Exposes Mac to public internet; requires IP tracking |
-| Pushbullet / similar cloud relay | Additional trust boundary; latency unpredictable |
+| Desktop-button automation as the primary architecture | Too brittle relative to App Server approval events |
+| Codex log parsing as the primary approval source | Inferential and weaker than protocol-native approval requests |
+| iCloud / Dropbox / Google Drive polling | Sync latency, collision risk, and poor auditability |
+| Dynamic DNS + router port forward | Exposes the Mac to the public internet |
+| Cloud relay as the only control plane | Adds an unnecessary trust boundary when local/private transport is available |
 
 ---
 
 ## 4. Implementation Phases
 
-### Phase 1 — Security foundation
-- Install Tailscale on macOS and iOS; verify peer-to-peer connectivity via MagicDNS
-- Generate Ed25519 keypair; configure `sshd_config`: key-only auth, no root login
-- Configure Tailscale ACLs to limit iPhone to port 22 on Codex Mac
-- **Milestone:** `echo "Hello World"` from iOS Shortcuts to macOS over Tailscale SSH while off local Wi-Fi
+### Phase 1 — Protocol foundation
 
-### Phase 2 — Outbound trigger
-- Implement Python watcher daemon with `watchdog` / FSEvents
-- Add debouncing, payload sanitization, and special-character escaping
-- Integrate Pushcut/Pushover webhook
-- Wrap in `launchd` `.plist` with `KeepAlive`
-- **Milestone:** Codex log event → iPhone notification with correct payload in < 2s
+- Validate `codex app-server` and `codex exec --json` surfaces locally
+- Freeze the approval request and response contracts
+- Align repo docs, skills, `AGENTS.md`, and `.codex` guidance around the App-Server-first model
+- **Milestone:** repo guidance and contracts all reflect the protocol-first architecture
 
-### Phase 3 — iOS logic bridge
-- Build iOS Shortcut: parse incoming payload, extract `action_id` and `risk_level`
-- Design notification UI: color-coded by risk level, lock-screen actionable (no app open required)
-- Map decision to sanitized SSH command arguments
-- **Milestone:** Notification received → SSH command fires correctly on Approve and Deny paths
+### Phase 2 — Broker core
 
-### Phase 4 — macOS actuator
-- Write AppleScript/JXA scripts that translate SSH command into Codex UI clicks
-- Harden: handle Codex not in foreground, handle UI element not found
-- Wrap actuator in `launchd` daemon alongside watcher
-- **Milestone:** End-to-end — intentional Codex block → notification → iOS approval → Mac executes
+- Implement a local CRA broker that connects to `codex app-server` over `stdio`
+- Normalize approval requests, audit raw and sanitized events, and expose a mobile-safe request contract
+- Add transcript fixtures and replay support
+- **Milestone:** live approval request -> normalized broker payload -> auditable local record
 
-### Phase 5 — QA and hardening
-- Simulate network drop during approval (cellular dead zone)
-- Rapid-fire notification flood test; verify debounce
-- Security audit: SSH config, Tailscale ACLs, payload sanitization
-- Measure all KPIs against targets
-- **Milestone:** All KPI targets met; edge cases documented
+### Phase 3 — Mobile decision transport
+
+- Build the iPhone Shortcut flow around the canonical request and response contracts
+- Return decisions to the broker over Tailscale/SSH or another private transport
+- Handle duplicate taps, stale requests, and transport failures explicitly
+- **Milestone:** phone decision resolves the matching broker request end-to-end
+
+### Phase 4 — Fallback and discovery
+
+- Maintain the existing Accessibility/OCR tooling for discovery and emergency fallback
+- Keep selector notes, screenshot captures, and OCR findings current when Codex UI changes
+- Do not promote the fallback path over the broker path
+- **Milestone:** visible approval prompt can be inspected or actuated only if the primary path is unavailable
+
+### Phase 5 — QA, automations, and hardening
+
+- Replay approval fixtures with `codex exec --json` and App Server transcripts
+- Exercise resilience scenarios: duplicate decisions, stale `request_id`, sleep/wake, VPN drops, revoked permissions
+- Document how recurring checks should use Codex automations and Triage when native automations are sufficient
+- **Milestone:** KPI targets met and replay evidence captured
 
 ---
 
@@ -130,12 +147,12 @@ Codex UI action executed
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| macOS Accessibility permissions revoked after OS update | Medium | High | Launchd restart; alert on daemon failure |
-| Tailscale iOS VPN drops on network switch | Medium | Medium | Shortcut retry logic with timeout exception handling |
-| AppleScript target element changes after Codex update | Medium | High | Element selection by stable `AXDescription`; test after Codex updates |
-| Duplicate notifications from rapid log writes | Low | Medium | 200ms debounce in watcher |
-| Payload injection via malformed log output | Low | High | Strict character escaping and JSON schema validation before webhook POST |
-| Pushcut/Pushover API downtime | Low | High | Fallback to local notification or audio alert on Mac |
+| App Server protocol changes | Medium | High | Validate against `codex app-server --help` and shared contract docs before implementation |
+| Decision replay or mismatch | Medium | High | Use `request_id` as the response handle and record the full request/response pair |
+| Private return transport unavailable off-network | Medium | Medium | Tailscale health checks, retry logic, and explicit operator-visible errors |
+| Broker and mobile payload drift | Medium | High | Single canonical request/response examples in shared docs and tests |
+| Accessibility or OCR fallback drifts after Codex updates | High | Medium | Keep fallback isolated and clearly secondary |
+| Third-party notification adapter downtime | Low | Medium | Keep the broker and transport contract independent of any single notification provider |
 
 ---
 
@@ -143,13 +160,12 @@ Codex UI action executed
 
 | Metric | Target |
 |--------|--------|
-| Inbound feedback latency (tap → Mac action) | < 500ms P95 |
-| Outbound notification latency (event → iPhone vibrate) | < 2.0s |
-| Mis-click / misparse rate | 0% |
-| Watcher daemon uptime | ≥ 99.9% |
-| macOS CPU usage (idle) | < 1% |
-| macOS RAM usage (idle) | < 50MB |
-| iOS battery contribution | < 1% daily |
+| Outbound notification latency (approval request -> phone visible) | < 2.0s |
+| Inbound feedback latency (tap -> broker response) | < 500ms P95 |
+| Protocol/request mismatch rate | 0% |
+| Replay fixture success rate | 100% on approved test corpus |
+| Idle broker overhead | < 1% CPU and < 50 MB RAM |
+| Fallback activation frequency | Near-zero in normal operation |
 
 ---
 
@@ -157,20 +173,20 @@ Codex UI action executed
 
 | Role | Responsibility |
 |------|---------------|
-| macOS Automation Engineer | AppleScript/JXA actuator; launchd daemon management |
-| Networking & Mobile Architect | Tailscale setup; iOS Shortcuts logic; Pushcut integration |
-| Security Specialist | SSH hardening; Tailscale ACLs; payload sanitization audit |
-| Backend / Python Developer | Watcher daemon; log parsing; debounce; webhook integration |
-
-In a single-agent setup (Codex), these roles map to sequential implementation phases rather than parallel team members.
+| CRA Orchestrator | Cross-skill routing, phase ordering, final contract assembly |
+| Backend / Broker Developer | App Server client, JSON-RPC handling, transcript normalization, replay fixtures |
+| macOS / Codex Environment Engineer | Repo `.codex` setup, App Server lifecycle, fallback Accessibility/OCR tooling |
+| Networking & Mobile Architect | iPhone Shortcut flow, Tailscale/SSH decision delivery, optional notification adapters |
+| Security Specialist | Broker threat model, transport hardening, transcript integrity, approval authenticity |
+| Test Engineer | Replay suites, resilience validation, KPI evidence, fallback reliability checks |
 
 ---
 
 ## 8. Definition of Done
 
-- [ ] End-to-end flow passes Phase 5 milestone
-- [ ] All KPI targets met under simulated adverse conditions
-- [ ] Security audit complete: no open ports, no password auth, ACLs locked
-- [ ] Launchd daemons auto-restart; watcher survives sleep/wake cycle
-- [ ] Playbook written: how to re-authorize Accessibility permissions after macOS update
-- [ ] Playbook written: how to rotate SSH keys
+- [ ] App-Server-first approval broker path implemented and documented
+- [ ] Canonical request and response contracts aligned across docs, skills, and tests
+- [ ] Private transport validated off-network
+- [ ] Replay fixtures and long-horizon validation evidence captured
+- [ ] Fallback Accessibility/OCR tooling explicitly documented as secondary
+- [ ] Repo-local Codex guidance (`AGENTS.md`, `.codex/`) checked in and aligned with the charter

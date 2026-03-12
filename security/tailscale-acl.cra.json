@@ -1,0 +1,13 @@
+{
+  "tagOwners": {
+    "tag:ios-device": ["autogroup:admin"],
+    "tag:codex-mac": ["autogroup:admin"]
+  },
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["tag:ios-device"],
+      "dst": ["tag:codex-mac:22"]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "approve": {
+    "ax_description": "REPLACE_WITH_APPROVE_AXDESCRIPTION",
+    "ocr_text_candidates": [
+      "Approve"
+    ],
+    "required_context_phrases": [
+      "Tool approval"
+    ]
+  },
+  "deny": {
+    "ax_description": "REPLACE_WITH_DENY_AXDESCRIPTION",
+    "ocr_text_candidates": [
+      "Deny"
+    ],
+    "required_context_phrases": [
+      "Tool approval"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "image_output": "var/captures/codex-window.png",
+  "matched_target": null,
+  "note": "No matching on-screen window was found.",
+  "returncode": 1,
+  "status": "error",
+  "text_items": [],
+  "window": null
+}

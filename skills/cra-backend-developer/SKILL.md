@@ -1,64 +1,63 @@
 ---
 name: cra-backend-developer
-description: Build the Python watcher daemon, log parsing engine, debounce logic, payload construction, and Pushcut/Pushover webhook integration for CRA. Use when the task involves monitoring Codex output, extracting approval signals, or sending notifications.
+description: Build the local CRA broker, App Server approval handling, transcript normalization, replay fixtures, and notification payload construction. Use when the task involves protocol handling, broker logic, or approval-contract processing.
 ---
 
-# CRA Backend / Python Developer
+# CRA Backend / Broker Developer
 
 ## Purpose
 
-Owns the outbound trigger path: watching Codex logs, extracting actionable signals, sanitizing payloads, and delivering notifications.
+Owns the primary CRA control plane: consuming Codex App Server approval events, normalizing them into a stable mobile-safe contract, recording transcripts, and resolving decisions back to Codex.
 
 ## When to Use
 
-- Python watcher daemon using `watchdog` / FSEvents
-- Codex log parsing to detect approval-required events
-- Debounce logic (200ms minimum between duplicate events)
-- Payload construction: `action_id` (UUID4), `context`, `risk_level`, `timestamp`
-- Special character escaping before JSON serialization
-- Pushcut / Pushover webhook POST integration
-- Watcher performance profiling (CPU < 1%, RAM < 50MB)
+- App Server JSON-RPC handling over `stdio` or WebSocket
+- Approval request normalization using `request_id`, `thread_id`, `turn_id`, and `item_id`
+- Decision response wiring (`accept`, `acceptForSession`, `decline`, `cancel`)
+- Transcript capture and normalization
+- `codex exec --json` replay fixtures and event-corpus tooling
+- Sanitized payload construction for the mobile approval surface
 
 ## Process
 
-1. Identify the log source — Codex stdout vs. log file path
-2. Implement FSEvents watcher via `watchdog`; add debounce with a 200ms window
-3. Parse log lines to extract intent and classify `risk_level` (low/medium/high)
-4. Sanitize all string values: escape quotes, backslashes, control characters
-5. Construct payload with UUID4 `action_id`; POST to webhook
-6. Wrap in launchd daemon (hand off `.plist` authoring to `cra-macos-engineer`)
+1. Validate the live surface with `codex app-server --help` and `codex exec --json`
+2. Freeze the canonical request and response envelopes from [`references/output-contracts.md`](../../references/output-contracts.md)
+3. Implement the broker adapter that maps App Server approval requests into the CRA request contract
+4. Record both the raw protocol event and the sanitized mobile payload
+5. Implement decision resolution by `request_id`
+6. Build replay fixtures and contract tests before any mobile integration is considered complete
 
-## Payload Schema
+## Canonical Request Fields
 
-```json
-{
-  "action_id": "<uuid4>",
-  "context": "<human-readable agent intention>",
-  "risk_level": "low | medium | high",
-  "timestamp": "<ISO8601>"
-}
-```
+- `request_id`
+- `thread_id`
+- `turn_id`
+- `item_id`
+- `kind`
+- `summary`
+- `available_decisions`
+- `timestamp`
 
 ## Standards
 
-- `action_id` must be UUID4, generated fresh per event — never reused
-- All user-visible strings must be sanitized before webhook POST
-- Debounce is mandatory — rapid log writes must not flood notifications
-- Watcher must use FSEvents (not polling) on macOS for CPU efficiency
-- Log the raw event and the sanitized payload to a local file for debugging
+- Treat App Server approval events as the source of truth
+- Preserve `thread_id`, `turn_id`, and `item_id` alongside `request_id`
+- Sanitize all operator-facing strings before they leave the broker
+- Prefer replay fixtures over synthetic log parsing
+- Label fallback prototype code that still uses `action_id` as fallback only
 
 ## Anti-Patterns
 
-- Polling log files on a timer — use FSEvents via `watchdog` instead
-- Sending raw log strings directly in the payload without sanitization
-- No debounce — single Codex action can write to stdout multiple times in milliseconds
-- Catching all exceptions silently — surface errors to the daemon log
+- Inferring approvals from logs when App Server approval requests are available
+- Creating a second response identifier instead of using `request_id`
+- Dropping raw protocol context from audit records
+- Making notification-provider payloads the canonical schema
 
 ## Output Format
 
 Produce:
-- Python watcher script with inline comments
-- Requirements: `watchdog`, `requests`, `uuid` (stdlib)
-- Sample log-to-payload parsing logic for Codex's actual output format
-- Unit test cases: debounce, sanitization, UUID uniqueness, payload schema
-- Performance notes: expected CPU/RAM at idle and under load
+- Broker module or protocol adapter shape
+- Contract mapping notes for request and response fields
+- Replay fixture or transcript strategy
+- Tests for normalization, stale-request handling, and decision routing
+- Performance notes for idle and active broker behavior

@@ -1,0 +1,10 @@
+# Shared repo-local Codex project layer for CRA.
+# Keep environment setup explicit and non-destructive:
+# - do not auto-install dependencies
+# - do not start private tunnels automatically
+# - do not change system settings from project setup
+#
+# Shared repo actions live in `.codex/commands/`.
+# Primary CRA work should prefer `codex app-server` and `codex exec --json`.
+
+project_root_markers = [".git"]

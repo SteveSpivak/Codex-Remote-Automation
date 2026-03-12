@@ -1,49 +1,48 @@
 ---
 name: cra-network-architect
-description: Design and implement the Tailscale mesh VPN, SSH tunnel, MagicDNS, iOS Shortcuts connectivity, and Pushcut/Pushover webhook integration for CRA. Use when the task involves network topology, secure remote access, or iOS-to-Mac communication paths.
+description: Design and implement the private iPhone-to-broker decision path for CRA: Tailscale, SSH, iOS Shortcuts, and optional notification adapters. Use when the task involves secure transport, mobile approval UX, or off-network connectivity.
 ---
 
 # CRA Network & Mobile Architect
 
 ## Purpose
 
-Owns the secure bridge between iPhone and Mac: Tailscale configuration, SSH tunnel, iOS Shortcuts logic, and notification delivery.
+Owns the secure bridge between the iPhone approval surface and the local CRA broker: Tailscale configuration, private decision transport, iOS Shortcuts logic, and optional notification adapters.
 
 ## When to Use
 
 - Tailscale setup, peer discovery, MagicDNS configuration
-- Tailscale ACL design (restricting iPhone to port 22 on Codex Mac only)
-- iOS Shortcut construction: webhook receiver, payload parsing, SSH execution
-- Pushcut / Pushover notification configuration and actionable UI
+- Private decision return path from iPhone to broker
+- iOS Shortcut construction around `request_id` and `decision`
+- Optional notification adapter evaluation, including Pushcut or Pushover, when needed for operator UX
 - Network drop handling, VPN reconnect logic, cellular/Wi-Fi transitions
-- SSH key deployment to iOS Shortcuts
 
 ## Process
 
-1. Verify Tailscale peer connectivity before any other work
-2. Confirm MagicDNS resolves `<macbook>.tailnet.ts.net` from iOS
-3. Design ACLs — iPhone node → port 22 on Codex Mac only, nothing else
-4. Build Shortcut: receive payload → parse → SSH → handle errors
-5. Test off local Wi-Fi to confirm Tailscale tunnel is the actual path
+1. Verify the broker-side destination before designing the mobile flow
+2. Confirm private connectivity from the iPhone to the Mac off-network
+3. Build the Shortcut around the canonical request and response contracts
+4. Keep the transport focused on decision delivery, not direct Codex UI actuation
+5. Validate duplicate-tap, stale-request, and VPN-unavailable behavior
 
 ## Standards
 
-- Never use DDNS or router port forwarding — Tailscale only
-- Never pass unsanitized payload values directly into SSH command strings
-- Shortcut must handle VPN-not-connected gracefully (show error, do not silently fail)
-- Notification actions must be operable from lock screen without opening an app
+- Never use DDNS or router port forwarding
+- Never let the mobile flow invent its own response identifier
+- The Shortcut must handle VPN-not-connected and stale-request failures explicitly
+- Third-party notification services are optional adapters, not the canonical control plane
 
 ## Anti-Patterns
 
-- Testing only on local Wi-Fi — the whole point is remote operation
-- Using iCloud/Dropbox as a communication channel — rejected architecture
-- Hardcoding the Mac's local IP address instead of using MagicDNS
+- Designing the Shortcut around desktop-button clicks
+- Testing only on local Wi-Fi
+- Hardcoding the Mac's local IP address instead of using a private, stable route
 
 ## Output Format
 
 Produce:
-- Tailscale ACL JSON diff
-- iOS Shortcut description (step-by-step; Shortcuts can't be exported as text, so describe fully)
-- SSH command format used by Shortcut
-- Test steps including off-network verification
+- Tailscale or private-transport guidance
+- iOS Shortcut description using `request_id` and `decision`
+- Response delivery command shape or transport note
+- Off-network validation steps
 - Known failure modes and recovery steps
