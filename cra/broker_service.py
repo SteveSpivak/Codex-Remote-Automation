@@ -16,6 +16,7 @@ from .broker import (
     record_decision_event,
     record_events,
 )
+from .imessage import compose_approval_message, find_response_messages, message_key, poll_imessages, send_imessage
 from .validation import build_broker_response
 
 
@@ -208,6 +209,9 @@ def run_broker_service(
     sandbox_policy: str = "workspaceWrite",
     timeout: float | None = None,
     poll_interval: float = 0.5,
+    imessage_handle: str | None = None,
+    imessage_poll_limit: int = 10,
+    imessage_db_path: Path | None = None,
     client_factory: Callable[..., AppServerClient] | None = None,
 ) -> dict[str, Any]:
     runtime_paths.runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -220,6 +224,8 @@ def run_broker_service(
     initialize_result: dict[str, Any] | None = None
     response_cursor = 0
     timed_out = False
+    notified_request_ids: set[str] = set()
+    seen_imessage_keys: set[str] = set()
 
     write_json_atomic(
         runtime_paths.state_path,
@@ -324,6 +330,7 @@ def run_broker_service(
                     )
                     changed = True
 
+                emitted: list[dict[str, Any]] = []
                 message = client.read_message(timeout=poll_interval)
                 if message is not None:
                     emitted = state.handle_message(message)
@@ -334,6 +341,55 @@ def run_broker_service(
                         if any(event.get("event") == "turn_completed" for event in emitted):
                             turn_completed = True
                         changed = True
+
+                if imessage_handle:
+                    approval_events = [event for event in emitted if event.get("event") == "approval_request"]
+                    for event in approval_events:
+                        approval = event.get("approval", {})
+                        request_id = approval.get("request_id")
+                        if not isinstance(request_id, str) or request_id in notified_request_ids:
+                            continue
+                        pending = state.pending_request(request_id)
+                        send_imessage(imessage_handle, compose_approval_message(pending.request))
+                        notified_request_ids.add(request_id)
+
+                if imessage_handle:
+                    polled = poll_imessages(
+                        imessage_handle,
+                        limit=imessage_poll_limit,
+                        db_path=imessage_db_path,
+                    )
+                    if polled.get("status") == "ok":
+                        parsed_responses = []
+                        for message in polled.get("messages", []):
+                            if not isinstance(message, dict):
+                                continue
+                            key = message_key(message)
+                            if key in seen_imessage_keys:
+                                continue
+                            seen_imessage_keys.add(key)
+                            parsed_responses.extend(find_response_messages([message]))
+
+                        for parsed in parsed_responses:
+                            try:
+                                pending = state.pending_request(parsed["request_id"])
+                                response = state.send_decision(parsed["request_id"], parsed["decision"])
+                            except ValueError:
+                                continue
+                            client.send_response(
+                                pending.request.wire_request_id,
+                                {"decision": response.decision.value},
+                            )
+                            audit_raw_message(
+                                runtime_paths.audit_paths.raw_messages,
+                                direction="outbound",
+                                message={"id": pending.request.wire_request_id, "result": {"decision": response.decision.value}},
+                            )
+                            record_events(
+                                [record_decision_event(response=response, pending=pending)],
+                                audit_paths=runtime_paths.audit_paths,
+                            )
+                            changed = True
 
                 if changed:
                     write_json_atomic(

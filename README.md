@@ -7,6 +7,8 @@ This repository contains the project charter, specialist CRA skills, repo-native
 ## Architecture Summary
 
 - Primary path: `codex app-server` -> local CRA broker -> iPhone approval surface -> broker decision response -> Codex
+- Alternate operator transport: iMessage send through Messages plus inbound reply polling from `~/Library/Messages/chat.db`, still resolving back through the same broker decision path
+  Note: reading `chat.db` may require Full Disk Access for the host process running CRA
 - Replay and testing path: `codex exec --json` and App Server protocol fixtures
 - Fallback path: the existing Shortcuts plus Accessibility/OCR prototype under `cra/`, `scripts/`, and `references/discovery/`
 - Security model: private transport only, protocol-aware audit logging, no public exposure, and human approval preserved throughout
@@ -50,6 +52,8 @@ codex exec --help
 python3 -m cra.cli broker-service --prompt "Run git status and wait for approval" --timeout 30
 python3 -m cra.cli broker-pending
 python3 -m cra.cli broker-respond --request-id <request_id> --decision decline
+python3 -m cra.cli imessage-poll --handle <your-imessage-handle>
+python3 -m cra.cli imessage-parse --text "decline <request_id>"
 python3 -m cra.cli broker-replay --input tests/fixtures/broker_command_flow.jsonl --auto-decision decline
 python3 -m cra.cli broker-summarize
 python3 -m unittest discover -s tests -p 'test_*.py'

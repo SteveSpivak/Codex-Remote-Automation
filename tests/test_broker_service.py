@@ -3,6 +3,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cra.broker import BrokerState
 from cra.broker_service import (
@@ -181,6 +182,56 @@ class BrokerServiceTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertEqual(fake_client.responses[0]["result"]["decision"], "decline")
         self.assertEqual(result_holder["result"]["status"], "timeout")
+
+    def test_run_broker_service_processes_imessage_reply(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_paths = default_broker_runtime_paths(
+                runtime_dir=Path(temp_dir) / "run",
+                audit_dir=Path(temp_dir) / "audit",
+            )
+            approval_message = {
+                "id": 202,
+                "method": "item/commandExecution/requestApproval",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "itemId": "cmd-2",
+                    "command": "curl https://example.com",
+                    "cwd": "/repo",
+                },
+            }
+            fake_client = _FakeClient(messages=[approval_message])
+            sent_messages = []
+            polled_messages = [
+                {"status": "ok", "messages": []},
+                {"status": "ok", "messages": [{"text": "decline 202", "timestamp_text": "2026-03-13 01:00:00"}]},
+            ]
+
+            def fake_send(handle, message_text):
+                sent_messages.append({"handle": handle, "text": message_text})
+                return {"status": "ok"}
+
+            def fake_poll(handle, limit=10, db_path=None):
+                if polled_messages:
+                    return polled_messages.pop(0)
+                return {"status": "ok", "messages": []}
+
+            with patch("cra.broker_service.send_imessage", side_effect=fake_send), patch(
+                "cra.broker_service.poll_imessages", side_effect=fake_poll
+            ):
+                result = run_broker_service(
+                    prompt="fetch example",
+                    cwd=Path("/repo"),
+                    runtime_paths=runtime_paths,
+                    timeout=0.2,
+                    poll_interval=0.01,
+                    imessage_handle="steven.s.spivak@me.com",
+                    client_factory=lambda **kwargs: fake_client,
+                )
+
+        self.assertEqual(sent_messages[0]["handle"], "steven.s.spivak@me.com")
+        self.assertEqual(fake_client.responses[0]["result"]["decision"], "decline")
+        self.assertEqual(result["approval_required"], True)
 
 
 if __name__ == "__main__":

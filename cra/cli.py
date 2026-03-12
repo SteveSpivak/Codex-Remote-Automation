@@ -27,6 +27,7 @@ from .broker_service import (
     run_broker_service,
 )
 from .discovery import SENTRY_SCOPE_PATH, discover_codex_environment
+from .imessage import parse_response_message, poll_imessages, send_imessage
 from .shortcuts import (
     build_broker_response_ssh_command,
     build_ssh_command,
@@ -168,6 +169,9 @@ def main() -> int:
     broker_service_parser.add_argument("--poll-interval", type=float, default=0.5)
     broker_service_parser.add_argument("--runtime-dir", default="var/run")
     broker_service_parser.add_argument("--audit-dir", default="var/audit")
+    broker_service_parser.add_argument("--imessage-handle")
+    broker_service_parser.add_argument("--imessage-poll-limit", type=int, default=10)
+    broker_service_parser.add_argument("--imessage-db-path")
 
     broker_pending_parser = subparsers.add_parser(
         "broker-pending",
@@ -191,6 +195,18 @@ def main() -> int:
     broker_ssh_command_parser.add_argument("--decision", required=True, choices=["accept", "acceptForSession", "decline", "cancel"])
     broker_ssh_command_parser.add_argument("--runtime-dir")
     broker_ssh_command_parser.add_argument("--python-path", default="python3")
+
+    imessage_send_parser = subparsers.add_parser("imessage-send", help="Send an iMessage via the Messages app.")
+    imessage_send_parser.add_argument("--handle", required=True)
+    imessage_send_parser.add_argument("--text", required=True)
+
+    imessage_poll_parser = subparsers.add_parser("imessage-poll", help="Poll recent iMessages for a handle.")
+    imessage_poll_parser.add_argument("--handle", required=True)
+    imessage_poll_parser.add_argument("--limit", type=int, default=10)
+    imessage_poll_parser.add_argument("--db-path")
+
+    imessage_parse_parser = subparsers.add_parser("imessage-parse", help="Parse a message body into a broker response if possible.")
+    imessage_parse_parser.add_argument("--text", required=True)
 
     args = parser.parse_args()
 
@@ -375,6 +391,19 @@ def main() -> int:
         )
         return 0
 
+    if args.command == "imessage-send":
+        _json_print(send_imessage(args.handle, args.text))
+        return 0
+
+    if args.command == "imessage-poll":
+        db_path = Path(args.db_path) if args.db_path else None
+        _json_print(poll_imessages(args.handle, limit=args.limit, db_path=db_path))
+        return 0
+
+    if args.command == "imessage-parse":
+        _json_print({"parsed": parse_response_message(args.text)})
+        return 0
+
     if args.command == "broker-service":
         timeout = args.timeout if args.timeout > 0 else None
         runtime_paths = default_broker_runtime_paths(
@@ -390,6 +419,9 @@ def main() -> int:
                 sandbox_policy=args.sandbox_policy,
                 timeout=timeout,
                 poll_interval=args.poll_interval,
+                imessage_handle=args.imessage_handle,
+                imessage_poll_limit=args.imessage_poll_limit,
+                imessage_db_path=Path(args.imessage_db_path) if args.imessage_db_path else None,
             )
         )
         return 0

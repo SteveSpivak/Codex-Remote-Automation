@@ -2,6 +2,8 @@
 
 CRA uses iPhone Shortcuts as the operator-facing approval surface. The Shortcut belongs to the broker path first and the hybrid-native prototype second.
 
+If iPhone Shortcuts are unavailable, the same broker response contract can be carried over iMessage using the Mac-side transport in `cra.imessage`.
+
 ## Primary Broker Path
 
 The Shortcut should receive a sanitized approval request derived from the App Server contract:
@@ -42,6 +44,17 @@ python3 -m cra.cli broker-respond --request-id <request_id> --decision <decision
 5. Surface explicit errors for stale requests, duplicate taps, or transport failures
 
 The Shortcut should not decide how Codex is actuated locally. It should only return the decision to the broker.
+
+## Alternate iMessage Path
+
+If you want the Mac itself to send the approval request and parse the reply through Messages, the send path uses the Messages app and the receive path reads `~/Library/Messages/chat.db`. On some macOS setups that database read will require Full Disk Access for the host process running CRA:
+
+```bash
+python3 -m cra.cli broker-service --prompt "Run git status and wait for approval" --imessage-handle <your-imessage-handle>
+python3 -m cra.cli imessage-parse --text "decline <request_id>"
+```
+
+The reply contract is unchanged: `decision + request_id`.
 
 ## Broker Runtime Commands
 
