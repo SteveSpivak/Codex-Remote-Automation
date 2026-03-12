@@ -47,6 +47,8 @@ Use these commands to validate the App Server and replay surfaces from the repo 
 ```bash
 codex app-server --help
 codex exec --help
+python3 -m cra.cli broker-replay --input tests/fixtures/broker_command_flow.jsonl --auto-decision decline
+python3 -m cra.cli broker-summarize
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 

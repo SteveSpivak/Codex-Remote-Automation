@@ -18,6 +18,18 @@ class Decision(str, Enum):
     DENY = "deny"
 
 
+class ApprovalKind(str, Enum):
+    COMMAND_EXECUTION = "command_execution"
+    FILE_CHANGE = "file_change"
+
+
+class BrokerDecision(str, Enum):
+    ACCEPT = "accept"
+    ACCEPT_FOR_SESSION = "acceptForSession"
+    DECLINE = "decline"
+    CANCEL = "cancel"
+
+
 @dataclass(frozen=True)
 class ApprovalEvent:
     action_id: str
@@ -49,6 +61,53 @@ class ActuationRequest:
         payload = asdict(self)
         payload["decision"] = self.decision.value
         return payload
+
+
+@dataclass(frozen=True)
+class BrokerApprovalRequest:
+    request_id: str
+    thread_id: str
+    turn_id: str
+    item_id: str
+    kind: ApprovalKind
+    summary: str
+    available_decisions: List[BrokerDecision]
+    timestamp: str
+    wire_request_id: str | int = field(repr=False, compare=False)
+    approval_id: str | None = field(default=None, repr=False, compare=False)
+    method: str = field(default="", repr=False, compare=False)
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "request_id": self.request_id,
+            "thread_id": self.thread_id,
+            "turn_id": self.turn_id,
+            "item_id": self.item_id,
+            "kind": self.kind.value,
+            "summary": self.summary,
+            "available_decisions": [decision.value for decision in self.available_decisions],
+            "timestamp": self.timestamp,
+        }
+
+
+@dataclass(frozen=True)
+class BrokerApprovalResponse:
+    request_id: str
+    decision: BrokerDecision
+
+    def to_dict(self) -> Dict[str, str]:
+        payload = asdict(self)
+        payload["decision"] = self.decision.value
+        return payload
+
+
+@dataclass
+class PendingApproval:
+    request: BrokerApprovalRequest
+    item_snapshot: Dict[str, object] | None = None
+    opened_at: str | None = None
+    responded_at: str | None = None
+    resolved_at: str | None = None
 
 
 @dataclass(frozen=True)

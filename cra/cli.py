@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from .ax_tree import dump_ax_tree
 from .accessibility import enable_manual_accessibility
 from .actuator import run_local_actuation
+from .app_server import AppServerClient
 from .audit import append_jsonl
+from .broker import (
+    BrokerState,
+    audit_raw_message,
+    default_broker_audit_paths,
+    load_jsonl_messages,
+    record_decision_event,
+    record_events,
+    replay_messages,
+    summarize_broker_audit,
+)
 from .discovery import SENTRY_SCOPE_PATH, discover_codex_environment
 from .shortcuts import build_ssh_command, handle_shortcut_entry, run_shortcut
 from .ui_probe import parse_probe_output, run_probe
@@ -18,6 +30,10 @@ from .watcher import run_watch, summarize_scope_file
 
 def _json_print(payload: object) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
 
 
 def main() -> int:
@@ -105,6 +121,29 @@ def main() -> int:
     watch_parser = subparsers.add_parser("watch-sentry", help="Watch the local Sentry scope file for modifications.")
     watch_parser.add_argument("--path", default=str(SENTRY_SCOPE_PATH))
     watch_parser.add_argument("--audit-path", default="var/audit/sentry-scope.jsonl")
+
+    broker_demo_parser = subparsers.add_parser("broker-demo", help="Run a local App Server broker smoke test.")
+    broker_demo_parser.add_argument("--prompt", required=True)
+    broker_demo_parser.add_argument("--cwd", default=str(_repo_root()))
+    broker_demo_parser.add_argument("--approval-policy", default="unlessTrusted")
+    broker_demo_parser.add_argument("--sandbox-policy", default="workspaceWrite")
+    broker_demo_parser.add_argument("--auto-decision", choices=["accept", "acceptForSession", "decline", "cancel"])
+    broker_demo_parser.add_argument("--timeout", type=float, default=45.0)
+    broker_demo_parser.add_argument("--audit-dir", default="var/audit")
+
+    broker_replay_parser = subparsers.add_parser(
+        "broker-replay",
+        help="Replay App Server JSONL fixtures through the broker state machine.",
+    )
+    broker_replay_parser.add_argument("--input", required=True)
+    broker_replay_parser.add_argument("--auto-decision", choices=["accept", "acceptForSession", "decline", "cancel"])
+    broker_replay_parser.add_argument("--audit-dir", default="var/audit")
+
+    broker_summarize_parser = subparsers.add_parser(
+        "broker-summarize",
+        help="Summarize broker audit streams under var/audit.",
+    )
+    broker_summarize_parser.add_argument("--audit-dir", default="var/audit")
 
     args = parser.parse_args()
 
@@ -245,6 +284,111 @@ def main() -> int:
 
     if args.command == "watch-sentry":
         run_watch(Path(args.path), Path(args.audit_path))
+        return 0
+
+    if args.command == "broker-replay":
+        audit_paths = default_broker_audit_paths(Path(args.audit_dir))
+        payload = replay_messages(
+            load_jsonl_messages(Path(args.input)),
+            auto_decision=args.auto_decision,
+            audit_paths=audit_paths,
+        )
+        _json_print(payload)
+        return 0
+
+    if args.command == "broker-summarize":
+        _json_print(summarize_broker_audit(default_broker_audit_paths(Path(args.audit_dir))))
+        return 0
+
+    if args.command == "broker-demo":
+        audit_paths = default_broker_audit_paths(Path(args.audit_dir))
+
+        def log_message(direction: str, message: dict[str, object]) -> None:
+            audit_raw_message(audit_paths.raw_messages, direction=direction, message=message)
+
+        events: list[dict[str, object]] = []
+        with AppServerClient(cwd=Path(args.cwd), message_logger=log_message) as client:
+            initialize_result = client.initialize()
+            client.mark_initialized()
+
+            thread_result = client.start_thread(
+                cwd=Path(args.cwd),
+                approval_policy=args.approval_policy,
+                sandbox=args.sandbox_policy,
+            )
+            thread = thread_result.get("thread", {})
+            thread_id = thread.get("id")
+            if not isinstance(thread_id, str) or not thread_id:
+                raise RuntimeError(f"thread/start did not return a thread id: {thread_result!r}")
+
+            turn_result = client.start_turn(
+                thread_id=thread_id,
+                prompt=args.prompt,
+                cwd=Path(args.cwd),
+                approval_policy=args.approval_policy,
+                sandbox_policy=args.sandbox_policy,
+            )
+            turn = turn_result.get("turn", {})
+            turn_id = turn.get("id")
+
+            state = BrokerState()
+            approval_required = False
+            saw_turn_completed = False
+            deadline = time.monotonic() + args.timeout
+
+            while time.monotonic() < deadline:
+                remaining = max(0.1, deadline - time.monotonic())
+                message = client.read_message(timeout=min(0.5, remaining))
+                if message is None:
+                    if saw_turn_completed:
+                        break
+                    continue
+
+                emitted = state.handle_message(message)
+                if emitted:
+                    events.extend(emitted)
+                    record_events(emitted, audit_paths=audit_paths)
+
+                approval_events = [event for event in emitted if event.get("event") == "approval_request"]
+                if approval_events:
+                    approval_required = True
+                    if args.auto_decision:
+                        for event in approval_events:
+                            pending = state.pending_request(event["approval"]["request_id"])
+                            response = state.send_decision(event["approval"]["request_id"], args.auto_decision)
+                            client.send_response(
+                                pending.request.wire_request_id,
+                                {"decision": response.decision.value},
+                            )
+                            decision_event = record_decision_event(response=response, pending=pending)
+                            events.append(decision_event)
+                            record_events([decision_event], audit_paths=audit_paths)
+                    else:
+                        break
+
+                if any(event.get("event") == "turn_completed" for event in emitted):
+                    saw_turn_completed = True
+                    if not approval_required:
+                        break
+
+        status = "ok"
+        if approval_required and not args.auto_decision and state.unresolved_request_ids():
+            status = "approval_pending"
+        elif not saw_turn_completed:
+            status = "timeout"
+
+        _json_print(
+            {
+                "status": status,
+                "initialize_result": initialize_result,
+                "thread_id": thread_id,
+                "turn_id": turn_id,
+                "approval_required": approval_required,
+                "turn_completed": saw_turn_completed,
+                "events": events,
+                "pending_request_ids": state.unresolved_request_ids(),
+            }
+        )
         return 0
 
     parser.error("Unknown command.")
