@@ -4,6 +4,8 @@ CRA uses iPhone Shortcuts as the operator-facing approval surface. The Shortcut 
 
 If iPhone Shortcuts are unavailable, the same broker response contract can be carried over iMessage using the Mac-side transport in `cra.imessage`.
 
+The recommended build pack for the iPhone Shortcut is in [references/shortcuts/cra-operator-shortcut.md](/Users/steve.spivak/Documents/MAcosAutomation/references/shortcuts/cra-operator-shortcut.md).
+
 ## Primary Broker Path
 
 The Shortcut should receive a sanitized approval request derived from the App Server contract:
@@ -36,7 +38,7 @@ The Shortcut should return only:
 2. Fetch the current pending approval payload:
 
 ```bash
-python3 -m cra.cli broker-shortcut-payload
+bash /Users/steve.spivak/Documents/MAcosAutomation/scripts/cra_shortcut_fetch_pending.sh
 ```
 
 3. Show the approval summary and available decisions
@@ -45,7 +47,7 @@ python3 -m cra.cli broker-shortcut-payload
 4. Recommended SSH target:
 
 ```bash
-python3 -m cra.cli broker-respond --request-id <request_id> --decision <decision> --operator-note "<optional_note>"
+bash /Users/steve.spivak/Documents/MAcosAutomation/scripts/cra_shortcut_respond.sh "<request_id>" "<decision>" "<optional_note>"
 ```
 
 6. Surface explicit errors for stale requests, duplicate taps, or transport failures

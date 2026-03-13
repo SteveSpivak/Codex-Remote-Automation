@@ -1,0 +1,41 @@
+{
+  "count": 1,
+  "payload": {
+    "decision_options": [
+      {
+        "label": "Accept",
+        "value": "accept"
+      },
+      {
+        "label": "Accept for Session",
+        "value": "acceptForSession"
+      },
+      {
+        "label": "Decline",
+        "value": "decline"
+      },
+      {
+        "label": "Cancel",
+        "value": "cancel"
+      }
+    ],
+    "default_decision": "decline",
+    "item_id": "cmd-1",
+    "kind": "command_execution",
+    "operator_note_enabled": true,
+    "operator_note_prompt": "Optional note for CRA audit",
+    "request_id": "req-shortcut-1",
+    "response_template": {
+      "decision": "<selected_decision>",
+      "operator_note": "<optional_note>",
+      "request_id": "req-shortcut-1"
+    },
+    "subtitle": "command execution",
+    "summary": "Run command git push origin main in /repo",
+    "thread_id": "thread-1",
+    "timestamp": "2026-03-13T00:01:16.414707+00:00",
+    "title": "CRA approval required",
+    "turn_id": "turn-1"
+  },
+  "status": "ok"
+}

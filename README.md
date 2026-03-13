@@ -91,6 +91,7 @@ The fallback prototype uses `action_id`, Accessibility selectors, and OCR helper
 - [CRA anti-patterns](references/cra-anti-patterns.md)
 - [CRA output contracts](references/output-contracts.md)
 - [Shortcuts runbook](references/shortcuts-runbook.md)
+- [Shortcut build pack](references/shortcuts/cra-operator-shortcut.md)
 - [Stage 0 fallback feasibility notes](references/discovery/stage-0-feasibility.md)
 - [Stage 2 fallback selector notes](references/discovery/stage-2-selector-freeze.md)
 - [Stage 3 fallback hybrid-native notes](references/discovery/stage-3-hybrid-native.md)
