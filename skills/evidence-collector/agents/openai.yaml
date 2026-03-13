@@ -1,0 +1,3 @@
+interface:
+  display_name: "Evidence Collector"
+  short_description: "Gather a minimal, high-signal proof set for debugging"

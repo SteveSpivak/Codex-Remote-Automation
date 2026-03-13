@@ -34,6 +34,9 @@ For CRA work, prefer this loop:
 - Use `cra-network-architect` for relay transport, hosted-vs-self-hosted decision work, TLS, and iPhone connectivity
 - Use `cra-security-specialist` for trust boundaries, pairing storage, relay blindness, and hosted-vs-self-hosted risk
 - Use `cra-test-engineer` for upstream proof matrices, reconnect checks, KPI evidence, and fallback reliability validation
+- Use `reality-checker` when a diagnosis, rewrite, or pivot may be based on assumption rather than proof
+- Use `evidence-collector` when a compact set of logs, state, and probes is needed to prove or disprove a claim
+- Use `lesson-curator` when a durable finding should update `references/lessons/`, repo guidance, or skill behavior
 
 ## Repo-Native Codex Surfaces
 
@@ -42,6 +45,7 @@ For CRA work, prefer this loop:
 - Recurring health or replay work should prefer Codex automations and Triage before a custom scheduler is added
 - Repo-local CRA skills can be linked into `$CODEX_HOME/skills` with `bash scripts/sync_repo_skills_to_codex.sh`
 - Durable lessons live under `references/lessons/` and should be captured when a finding changes architecture, skills, or workflow
+- Meta-productivity skills should stay small, evidence-first, and reusable across projects rather than project-persona heavy
 
 ## Fallback Rules
 

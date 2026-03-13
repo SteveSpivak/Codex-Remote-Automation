@@ -1,0 +1,3 @@
+interface:
+  display_name: "Reality Checker"
+  short_description: "Challenge weak assumptions before a rewrite or pivot"
