@@ -21,7 +21,7 @@ The following patterns are explicitly out of bounds for Codex Remote Automation 
 - Do not make AppleScript, Accessibility, OCR, or screenshot targeting the primary approval architecture.
 - Do not target UI elements by screen coordinates, tab order, or fragile positional assumptions unless you are explicitly in fallback mode.
 - Do not let fallback tooling drift into normal operations without updating the charter and standards.
-- Do not keep Shortcuts or iMessage framed as the primary operator surface after the native iOS bridge pivot.
+- Do not keep Shortcuts or iMessage framed as the primary operator surface after the Remodex bridge pivot.
 
 ## Repo and Workflow
 

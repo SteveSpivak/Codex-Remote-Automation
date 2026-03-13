@@ -32,15 +32,16 @@ The orchestrator and specialist skills use the following output contracts to kee
 
 ```json
 {
-  "v": 1,
-  "protocolVersion": 1,
-  "relayUrl": "ws://relay.example:8787",
+  "v": 2,
+  "relay": "ws://relay.example:8787",
   "sessionId": "<bridge session id>",
-  "bridgeDeviceId": "<stable bridge device id>",
-  "pairingSecret": "<short-lived QR bootstrap secret>",
+  "macDeviceId": "<stable bridge device id>",
+  "macIdentityPublicKey": "<Ed25519 public key>",
   "expiresAt": 1773333333000
 }
 ```
+
+This QR payload is encoded as raw JSON for the Remodex iPhone app to scan. The older CRA-specific shared-secret pairing payload remains legacy fallback code only and is not the primary mobile contract.
 
 ## Bridge Control Messages
 

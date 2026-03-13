@@ -7,6 +7,7 @@ const { URL } = require("url");
 const HOST = process.env.CRA_RELAY_HOST || "0.0.0.0";
 const PORT = Number(process.env.CRA_RELAY_PORT || 8787);
 const sessions = new Map();
+const VALID_ROLES = new Set(["mac", "iphone", "phone"]);
 
 function createSessionState() {
   return {
@@ -123,22 +124,42 @@ function handleTextMessage(socket, message) {
   }
 }
 
-function handleUpgrade(request, socket) {
+function parseSessionRequest(request) {
   const requestUrl = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   const segments = requestUrl.pathname.split("/").filter(Boolean);
-  if (segments.length !== 2 || segments[0] !== "session") {
+
+  let sessionId = "";
+  if (segments.length === 2 && segments[0] === "session") {
+    sessionId = segments[1];
+  } else if (segments.length === 1) {
+    sessionId = segments[0];
+  }
+
+  const role = String(
+    request.headers["x-role"]
+      || requestUrl.searchParams.get("role")
+      || ""
+  ).trim().toLowerCase();
+
+  if (!sessionId || !VALID_ROLES.has(role)) {
+    return null;
+  }
+
+  return {
+    sessionId,
+    role: role === "phone" ? "iphone" : role,
+  };
+}
+
+function handleUpgrade(request, socket) {
+  const sessionRequest = parseSessionRequest(request);
+  if (!sessionRequest) {
     socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.destroy();
     return;
   }
 
-  const sessionId = segments[1];
-  const role = requestUrl.searchParams.get("role");
-  if (!sessionId || !role || !["mac", "iphone"].includes(role)) {
-    socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
-    socket.destroy();
-    return;
-  }
+  const { sessionId, role } = sessionRequest;
 
   const key = request.headers["sec-websocket-key"];
   if (!key) {
@@ -173,19 +194,31 @@ function handleUpgrade(request, socket) {
   socket.on("error", () => removeSocket(sessionId, socket));
 }
 
-const server = http.createServer((request, response) => {
-  const requestUrl = new URL(request.url, `http://${request.headers.host || "localhost"}`);
-  if (requestUrl.pathname === "/health") {
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ status: "ok", sessions: sessions.size }));
-    return;
-  }
-  response.writeHead(404, { "content-type": "application/json" });
-  response.end(JSON.stringify({ error: "not_found" }));
-});
+function createRelayServer() {
+  const server = http.createServer((request, response) => {
+    const requestUrl = new URL(request.url, `http://${request.headers.host || "localhost"}`);
+    if (requestUrl.pathname === "/health") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: "ok", sessions: sessions.size }));
+      return;
+    }
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "not_found" }));
+  });
 
-server.on("upgrade", handleUpgrade);
+  server.on("upgrade", handleUpgrade);
+  return server;
+}
 
-server.listen(PORT, HOST, () => {
-  console.log(`[cra-relay] listening on ws://${HOST}:${PORT}`);
-});
+const server = createRelayServer();
+
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    console.log(`[cra-relay] listening on ws://${HOST}:${PORT}`);
+  });
+}
+
+module.exports = {
+  createRelayServer,
+  parseSessionRequest,
+};

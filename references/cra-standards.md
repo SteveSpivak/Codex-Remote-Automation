@@ -4,7 +4,7 @@ These standards apply to all Codex Remote Automation (CRA) planning and implemen
 
 ## Architecture Invariants
 
-- Preserve the canonical topology: `codex app-server` -> warm CRA Bridge -> encrypted relay session -> native iPhone CRA Operator app -> bridge decision response -> Codex.
+- Preserve the canonical topology: `codex app-server` -> warm CRA Bridge -> encrypted relay session -> Remodex-compatible iPhone app -> bridge decision response -> Codex.
 - Keep the project human-in-the-loop. CRA may assist approval flow, but it must not bypass the human decision.
 - Prefer protocol surfaces before UI surfaces. App Server, bridge session sync, and noninteractive transcript flows come before Shortcuts, Accessibility, AppleScript, or OCR.
 - Treat the project as remote approval for Codex only, not as a general-purpose macOS remote control framework.
@@ -13,7 +13,7 @@ These standards apply to all Codex Remote Automation (CRA) planning and implemen
 
 - Do not expose the bridge or Mac to the public internet. If the relay is reachable outside the local network, it must be intentionally self-hosted and hardened.
 - The relay must be transport-only. It may route session metadata, but it must not receive approval payload plaintext.
-- QR bootstrap secrets must expire quickly and trusted reconnect state must be bridge-side only.
+- QR bootstrap payloads must expire quickly, trusted reconnect state must be bridge-side only, and the primary pairing material must use the Remodex-compatible identity-key schema instead of the older CRA shared-secret schema.
 - Use key-only SSH with Ed25519 keys and disable password authentication and root login when SSH is used for fallback decision return.
 - Sanitize every operator-visible or transport-visible string before it is serialized, logged, or shown on the phone.
 - Use the App Server `request_id` as the canonical response handle and treat it as untrusted input everywhere else in the system.

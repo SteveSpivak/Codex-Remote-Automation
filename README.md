@@ -1,14 +1,14 @@
 # Codex Remote Automation
 
-Codex Remote Automation (CRA) is an approval-first remote control plane for Codex on macOS. The primary architecture is no longer Shortcut-driven. The Mac keeps a warm `codex app-server` session alive, a CRA bridge normalizes approvals and encrypts mobile traffic, a self-hosted WebSocket relay forwards only opaque envelopes, and a native iPhone client returns the operator's decision back to the bridge.
+Codex Remote Automation (CRA) is an approval-first remote control plane for Codex on macOS. The phone-compatible primary path is now Remodex-style: the Mac keeps a warm `codex app-server` session alive, a Remodex-compatible bridge encrypts mobile traffic, a self-hosted WebSocket relay forwards only opaque envelopes, and the Remodex iPhone app connects over the bridge protocol.
 
-This repository contains the CRA bridge code, the self-hosted relay, a native iOS client skeleton, specialist CRA skills, repo-native Codex guidance, and explicit fallback tooling. Shortcuts, iMessage, Accessibility, AppleScript, and OCR remain in the repo as transitional or discovery paths only.
+This repository contains the Remodex-compatible bridge code, the self-hosted relay, a CRA iOS client skeleton for future custom work, specialist CRA skills, repo-native Codex guidance, and explicit fallback tooling. Shortcuts, iMessage, Accessibility, AppleScript, and OCR remain in the repo as transitional or discovery paths only.
 
 ## Architecture Summary
 
-- Primary path: `codex app-server` -> warm CRA Bridge -> encrypted session envelopes -> self-hosted relay -> native iOS CRA Operator app -> bridge decision response -> Codex
+- Primary path: `codex app-server` -> warm Remodex-compatible bridge -> encrypted session envelopes -> self-hosted relay -> Remodex iPhone app -> bridge decision response -> Codex
 - Replay and testing path: `codex exec --json`, broker replay fixtures, and bridge protocol tests
-- Transitional fallback path: Shortcuts or iMessage for operator decisions when the native iOS app is not yet available
+- Transitional fallback path: Shortcuts or iMessage for operator decisions when the Remodex app path is unavailable
 - Discovery/emergency fallback path: Accessibility, AppleScript, screenshot, and OCR helpers under `cra/`, `scripts/`, and `references/discovery/`
 - Security model: relay is transport-only, approval payloads remain encrypted in transit, replay protection is mandatory, and human approval is preserved throughout
 
@@ -46,20 +46,20 @@ This repository contains the CRA bridge code, the self-hosted relay, a native iO
     `-- cra-test-engineer/SKILL.md
 ```
 
-## Bridge Quick Start
+## Remodex Bridge Quick Start
 
 Use these commands from the repo root to exercise the primary bridge path:
 
 ```bash
 node relay/server.js
-python3 -m cra.cli bridge-create-pairing --relay-url ws://127.0.0.1:8787
-python3 -m cra.cli bridge-service --relay-url ws://127.0.0.1:8787 --prompt "Run git status and wait for approval"
-python3 -m cra.cli bridge-state
+node remodex/bridge.js --relay-url ws://127.0.0.1:8787 --pair-only
+node remodex/bridge.js --relay-url ws://127.0.0.1:8787
 codex app-server --help
 codex exec --help
 python3 -m cra.cli broker-replay --input tests/fixtures/broker_command_flow.jsonl --auto-decision decline
 python3 -m cra.cli broker-summarize
 python3 -m unittest discover -s tests -p 'test_*.py'
+node --test tests/node/*.test.js
 node --check relay/server.js
 ```
 
@@ -70,7 +70,7 @@ Repo-native Codex commands are checked in under `.codex/commands/`:
 - `/cra-app-server-readiness`
 - `/cra-bridge-readiness`
 
-The native iOS operator client source lives under `ios/CRAOperatorApp/`. This repo currently ships a source skeleton rather than a complete Xcode project because the current Mac has Command Line Tools but not the full Xcode app.
+The Remodex-compatible bridge source lives under [remodex](/Users/steve.spivak/Documents/MAcosAutomation/remodex). The in-repo CRA iOS operator client source still lives under [CRAOperatorApp](/Users/steve.spivak/Documents/MAcosAutomation/ios/CRAOperatorApp), but it is now secondary/experimental rather than the primary mobile path.
 
 ## Transitional Fallback Quick Start
 
@@ -110,6 +110,7 @@ The discovery path uses `action_id`, Accessibility selectors, and OCR helpers. T
 - [CRA anti-patterns](references/cra-anti-patterns.md)
 - [CRA output contracts](references/output-contracts.md)
 - [Secure bridge protocol](references/bridge/secure-bridge-protocol.md)
+- [Remodex bridge notes](remodex/README.md)
 - [Shortcuts runbook (fallback)](references/shortcuts-runbook.md)
 - [Shortcut build pack](references/shortcuts/cra-operator-shortcut.md)
 - [Stage 0 fallback feasibility notes](references/discovery/stage-0-feasibility.md)

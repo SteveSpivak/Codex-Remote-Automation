@@ -1,6 +1,6 @@
 # CRA Shortcuts Runbook
 
-Shortcuts is now a transitional CRA fallback path. The primary operator surface is the native iPhone CRA Operator app over the secure bridge and self-hosted relay.
+Shortcuts is now a transitional CRA fallback path. The primary operator surface is a Remodex-compatible iPhone app over the secure bridge and self-hosted relay.
 
 Use this runbook when:
 

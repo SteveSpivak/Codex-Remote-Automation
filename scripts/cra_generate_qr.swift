@@ -1,6 +1,8 @@
-import AppKit
 import CoreImage
+import CoreGraphics
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 let arguments = CommandLine.arguments
 
@@ -31,21 +33,33 @@ guard let outputImage = filter.outputImage else {
 }
 
 let scaledImage = outputImage.transformed(by: CGAffineTransform(scaleX: 12, y: 12))
-let representation = NSCIImageRep(ciImage: scaledImage)
-let image = NSImage(size: representation.size)
-image.addRepresentation(representation)
+let context = CIContext(options: nil)
+let outputRect = scaledImage.extent.integral
 
-guard let tiffData = image.tiffRepresentation,
-      let bitmap = NSBitmapImageRep(data: tiffData),
-      let pngData = bitmap.representation(using: NSBitmapImageRep.FileType.png, properties: [:]) else {
-    fputs("failed to render PNG data for QR image\n", stderr)
+guard let cgImage = context.createCGImage(scaledImage, from: outputRect) else {
+    fputs("failed to create CGImage for QR image\n", stderr)
     exit(1)
 }
 
 let outputURL = URL(fileURLWithPath: outputPath)
 
 do {
-    try pngData.write(to: outputURL)
+    guard let destination = CGImageDestinationCreateWithURL(
+        outputURL as CFURL,
+        UTType.png.identifier as CFString,
+        1,
+        nil
+    ) else {
+        fputs("failed to create PNG destination\n", stderr)
+        exit(1)
+    }
+
+    CGImageDestinationAddImage(destination, cgImage, nil)
+    if !CGImageDestinationFinalize(destination) {
+        fputs("failed to finalize PNG destination\n", stderr)
+        exit(1)
+    }
+
     print(outputPath)
 } catch {
     fputs("failed to write QR image: \(error)\n", stderr)

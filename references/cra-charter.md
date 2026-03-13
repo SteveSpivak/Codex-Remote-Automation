@@ -10,7 +10,7 @@
 
 Codex can surface high-stakes approval points while working across files, commands, and long-running tasks. A human should be able to review and decide on those approvals from an iPhone without staying at the Mac and without relying on brittle desktop-button automation or ad hoc mobile shortcuts as the primary control plane.
 
-Project CRA solves this by inserting a warm local CRA Bridge between Codex and the operator. The bridge consumes Codex approval events through `codex app-server`, normalizes them into a mobile-safe contract, synchronizes them over encrypted envelopes through a self-hosted relay, and returns the operator's decision back to Codex from a native iPhone client.
+Project CRA solves this by inserting a warm local CRA Bridge between Codex and the operator. The primary phone-compatible implementation now follows the Remodex transport model: the bridge consumes Codex approval events through `codex app-server`, synchronizes them over encrypted envelopes through a self-hosted relay, and returns the operator's decision back to Codex from a Remodex-compatible iPhone client.
 
 ---
 
@@ -46,7 +46,7 @@ CRA Bridge (local, warm session)
     ↓ encrypted approval envelope
 self-hosted relay (transport only)
     ↓ encrypted approval envelope
-native iPhone CRA Operator app
+Remodex-compatible iPhone app
     ↓ encrypted decision envelope
 self-hosted relay
     ↓ encrypted decision envelope
@@ -89,9 +89,9 @@ Codex continues
 
 - The CRA Bridge keeps the local App Server session warm across phone disconnects
 - The relay is self-hosted and transport-only: it can see session metadata, but not approval payload plaintext
-- The native iPhone CRA Operator app is the primary operator surface
+- A Remodex-compatible iPhone app is the primary operator surface
 - QR bootstrap is the default first-pairing mechanism; trusted reconnect is the default steady-state mechanism
-- Shortcuts or iMessage may be used only as transitional fallback tooling before native mobile parity
+- Shortcuts or iMessage may be used only as transitional fallback tooling when the Remodex app path is unavailable
 - The transport returns a decision to the bridge; it does not drive the Codex desktop UI directly
 
 ### 3.5 Fallback path
@@ -136,11 +136,11 @@ Codex continues
 - Implement the self-hosted transport-only relay
 - **Milestone:** pending approvals survive reconnect and relay plaintext exposure is eliminated
 
-### Phase 4 — Native iPhone operator app
+### Phase 4 — Mobile client compatibility
 
-- Build the native iOS client for pairing, reconnect, pending approval sync, and decision submission
+- Build and maintain Remodex-compatible mobile pairing, reconnect, pending approval sync, and decision submission
 - Keep the response contract fixed to `request_id + decision`, with optional note for CRA-local audit only
-- **Milestone:** paired iPhone app resolves the matching bridge request end-to-end
+- **Milestone:** paired Remodex-compatible iPhone app resolves the matching bridge request end-to-end
 
 ### Phase 5 — Fallback, QA, and hardening
 

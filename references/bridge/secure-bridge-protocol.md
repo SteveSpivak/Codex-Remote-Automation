@@ -1,6 +1,6 @@
 # CRA Secure Bridge Protocol
 
-This document describes the primary CRA path after the Remodex-style pivot.
+This document describes the primary CRA path after the Remodex-compatible pivot.
 
 ## Scope
 
@@ -8,7 +8,7 @@ The secure bridge protocol exists only to move approval requests and decisions b
 
 - the warm CRA Bridge on the Mac
 - the self-hosted relay
-- the native iPhone CRA Operator app
+- the Remodex-compatible iPhone app
 
 It does not replace the canonical approval contract. It wraps that contract in pairing, reconnect, and encrypted transport behavior.
 
@@ -16,8 +16,8 @@ It does not replace the canonical approval contract. It wraps that contract in p
 
 1. Start the local relay.
 2. Start or inspect the warm CRA Bridge on the Mac.
-3. Generate a short-lived pairing payload with `bridge-create-pairing`.
-4. Show the generated QR or pairing URI to the phone.
+3. Generate a short-lived pairing payload with the Remodex-compatible bridge.
+4. Show the generated QR or pairing JSON to the phone.
 5. The phone scans the pairing payload and opens a relay session as `role=iphone`.
 6. The phone sends `clientHello`.
 7. The bridge validates the QR bootstrap or trusted reconnect proof and replies with `serverHello`.
@@ -41,12 +41,12 @@ The relay is transport-only.
 
 ## Bridge Artifacts
 
-The bridge writes local runtime artifacts under `var/bridge/` by default:
+The bridge writes local runtime artifacts under `var/remodex-bridge/` by default:
 
 - `device-state.json`: stable bridge device identity and trusted phones
-- `pairing-payload.json`: current pairing payload for the active session
-- `pairing-qr.png`: scannable QR image for the iPhone app
-- `pairing-qr.txt`: human-readable pairing URI and JSON payload
+- `pairing-payload.json`: current Remodex-compatible pairing payload for the active session
+- `pairing-qr.png`: scannable QR image for the Remodex app
+- `pairing-qr.txt`: human-readable pairing JSON payload
 - `bridge-state.json`: current runtime status and pending approvals
 
 Audit streams are written under `var/audit/` by default:
@@ -60,14 +60,14 @@ Audit streams are written under `var/audit/` by default:
 
 ## Pairing And Reconnect Rules
 
-- QR bootstrap secrets expire quickly and are single-session bootstrap material.
+- QR bootstrap payloads expire quickly and are single-session bootstrap material.
 - Trusted reconnect uses bridge-side device trust, not a new approval contract.
 - The bridge is responsible for replay protection.
 - Pending approvals must survive reconnects and be re-sent through a snapshot update.
 
 ## Fallback Boundary
 
-Shortcuts, iMessage, Accessibility, AppleScript, and OCR are outside the primary secure bridge protocol.
+Shortcuts, iMessage, Accessibility, AppleScript, OCR, and the experimental in-repo CRA iOS client are outside the primary secure bridge protocol.
 
 They remain available only as:
 

@@ -9,9 +9,9 @@
 ## Architecture Preference
 
 - Use `codex app-server` as the primary approval surface.
-- Use the warm CRA Bridge plus self-hosted relay plus native iOS CRA Operator app as the primary operator path.
+- Use the warm CRA Bridge plus self-hosted relay plus a Remodex-compatible iPhone app as the primary operator path.
 - Use `codex exec --json` for replay, fixtures, and long-horizon validation.
-- Use iPhone Shortcuts or iMessage only as fallback/dev tooling while the native iOS app is incomplete.
+- Use iPhone Shortcuts or iMessage only as fallback/dev tooling while the Remodex-compatible app path is unavailable.
 - Only drop to Accessibility, AppleScript, OCR, or screenshot targeting if:
   - the task is explicitly about fallback tooling, or
   - the App Server path is blocked and the fallback label is kept explicit.
