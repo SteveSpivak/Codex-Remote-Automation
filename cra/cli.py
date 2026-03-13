@@ -270,6 +270,7 @@ def main() -> int:
     remodex_build_parser.add_argument("--node-path")
     remodex_build_parser.add_argument("--codex-path")
     remodex_build_parser.add_argument("--remodex-bin")
+    remodex_build_parser.add_argument("--extra-ca-cn", action="append", default=[])
 
     remodex_run_parser = subparsers.add_parser(
         "remodex-upstream-run",
@@ -283,6 +284,7 @@ def main() -> int:
     remodex_run_parser.add_argument("--node-path")
     remodex_run_parser.add_argument("--codex-path")
     remodex_run_parser.add_argument("--remodex-bin")
+    remodex_run_parser.add_argument("--extra-ca-cn", action="append", default=[])
 
     remodex_install_parser = subparsers.add_parser(
         "remodex-install-launch-agent",
@@ -298,6 +300,7 @@ def main() -> int:
     remodex_install_parser.add_argument("--node-path")
     remodex_install_parser.add_argument("--codex-path")
     remodex_install_parser.add_argument("--remodex-bin")
+    remodex_install_parser.add_argument("--extra-ca-cn", action="append", default=[])
 
     remodex_uninstall_parser = subparsers.add_parser(
         "remodex-uninstall-launch-agent",
@@ -614,7 +617,18 @@ def main() -> int:
             codex_path=args.codex_path,
             remodex_bin=args.remodex_bin,
         )
-        _json_print(build_patched_runtime(installed, base_dir=Path(args.runtime_dir)))
+        payload = build_patched_runtime(installed, base_dir=Path(args.runtime_dir))
+        if args.extra_ca_cn:
+            from .remodex_upstream import build_extra_ca_bundle, export_extra_ca_certificates, runtime_paths
+
+            runtime = runtime_paths(base_dir=Path(args.runtime_dir), home=installed.home)
+            payload["extra_ca_cert_paths"] = [
+                str(path)
+                for path in export_extra_ca_certificates(runtime, common_names=args.extra_ca_cn)
+            ]
+            bundle_path = build_extra_ca_bundle(runtime, common_names=args.extra_ca_cn)
+            payload["extra_ca_bundle_path"] = str(bundle_path) if bundle_path else None
+        _json_print(payload)
         return 0
 
     if args.command == "remodex-upstream-run":
@@ -630,6 +644,7 @@ def main() -> int:
             base_dir=Path(args.runtime_dir),
             command=args.remodex_command,
             thread_id=args.thread_id,
+            extra_ca_common_names=args.extra_ca_cn,
         )
 
     if args.command == "remodex-install-launch-agent":
@@ -648,6 +663,7 @@ def main() -> int:
                 stdout_log=Path(args.stdout_log) if args.stdout_log else None,
                 stderr_log=Path(args.stderr_log) if args.stderr_log else None,
                 bootstrap=args.bootstrap,
+                extra_ca_common_names=args.extra_ca_cn,
             )
         )
         return 0

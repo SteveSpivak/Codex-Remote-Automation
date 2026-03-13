@@ -38,6 +38,7 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 ### Local runtime checks
 
 - The official upstream bridge starts locally and produces a valid Remodex QR.
+- The official upstream bridge can pair the phone successfully when the Mac can reach the relay without breaking Codex authentication.
 - The official upstream bridge connected successfully to the local repo relay in a Mac-only test.
 - That proves the local relay can satisfy the upstream bridge handshake at least at a basic level.
 - It does not prove that the iPhone app accepts the same local relay path.
@@ -46,6 +47,20 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 - In upstream `secure-transport.js`, trusted reconnect still calls `rememberTrustedPhone(...)`.
 - In upstream `secure-device-state.js`, `rememberTrustedPhone(...)` always tries a Keychain-backed write first on macOS.
 - That explains the repeated Keychain prompt on reconnect and justifies a minimal local patch at the device-state persistence layer.
+- On this Mac, the hosted relay path is currently behind TLS interception by a Cellebrite/Palo certificate chain.
+- A direct Node WebSocket connection to `wss://api.phodex.app/relay/...` fails with `self-signed certificate in certificate chain` unless the local intercepting CAs are exported and injected with `NODE_EXTRA_CA_CERTS`.
+- After the intercepting CAs are trusted for Node, the hosted WebSocket still resets with `ECONNRESET` before Remodex reaches `[remodex] connected`.
+- That means the current blocker is no longer the Keychain prompt or repo wrapper. It is the active network path between this Mac and the hosted relay.
+
+### Hosted relay environment constraint
+
+- `openssl s_client` against `api.phodex.app:443` on this Mac currently shows an intercepting issuer chain that includes `CN=palo.cellebrite.local`.
+- The same machine can establish raw TLS to the host, but Node WebSocket traffic is still reset after CA trust is injected.
+- For this environment, hosted upstream should be treated as "blocked by network policy until proven otherwise" rather than "broken in CRA."
+- The practical proof gate is now:
+  - test the hosted path on a non-intercepted network such as a hotspot or home Wi-Fi
+  - if that works, keep hosted upstream as the default daily-driver path
+  - if that still fails, or if this managed network is the permanent environment, prefer the local or self-hosted relay path for this machine
 
 ## Open Questions
 
@@ -53,6 +68,7 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 - Does the iPhone app rely on hosted relay semantics beyond the basic QR payload and socket path?
 - Can the full approval flow work without the hosted push service?
 - Is self-hosting officially supported for the current phone build or only intended for a future phase?
+- Can the hosted upstream relay be reached reliably from this managed network even after Node trusts the intercepting CA chain?
 
 ## CRA Implications
 
@@ -60,6 +76,7 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 - CRA should wrap upstream behavior thinly for audit, policy, and replay needs.
 - The in-repo `remodex/` folder should be treated as a compatibility study only.
 - The local relay remains a research surface; hosted upstream is the daily-driver baseline for this repo.
+- For managed networks that intercept TLS, hosted upstream may be impractical even when the wrapper and patch are correct.
 - The smallest justified fork point is upstream `secure-device-state.js`, not the full bridge or relay.
 - Forking bridge or relay behavior should happen only after a known-good upstream phone pairing exists and a hard blocker is documented.
 

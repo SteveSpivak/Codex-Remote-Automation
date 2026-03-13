@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -64,6 +65,7 @@ class GeneratedRemodexRuntime:
     metadata_path: Path
     patch_source_path: Path
     device_state_path: Path
+    certs_dir: Path
 
 
 def _resolve_command_path(command: str, explicit: str | None = None) -> Path:
@@ -140,6 +142,7 @@ def runtime_paths(
         metadata_path=root / "runtime-metadata.json",
         patch_source_path=_patch_source_path(),
         device_state_path=_user_home(home) / ".remodex" / "device-state.json",
+        certs_dir=root / "certs",
     )
 
 
@@ -209,7 +212,59 @@ def ensure_patched_runtime(
     return runtime
 
 
-def _runtime_env(installed: InstalledRemodexPaths) -> dict[str, str]:
+def _sanitize_cert_name(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-") or "extra-ca"
+
+
+def export_extra_ca_certificates(
+    runtime: GeneratedRemodexRuntime,
+    *,
+    common_names: list[str],
+) -> list[Path]:
+    exported_paths: list[Path] = []
+    runtime.certs_dir.mkdir(parents=True, exist_ok=True)
+    keychains = [
+        "/Library/Keychains/System.keychain",
+        "/System/Library/Keychains/SystemRootCertificates.keychain",
+        str(_user_home() / "Library" / "Keychains" / "login.keychain-db"),
+    ]
+    for common_name in [value.strip() for value in common_names if value and value.strip()]:
+        pem_output = ""
+        for keychain in keychains:
+            completed = subprocess.run(
+                ["security", "find-certificate", "-a", "-c", common_name, "-p", keychain],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if completed.returncode == 0 and completed.stdout.strip():
+                pem_output = completed.stdout.strip() + "\n"
+                break
+        if not pem_output:
+            continue
+        destination = runtime.certs_dir / f"{_sanitize_cert_name(common_name)}.pem"
+        destination.write_text(pem_output, encoding="utf-8")
+        exported_paths.append(destination)
+    return exported_paths
+
+
+def build_extra_ca_bundle(runtime: GeneratedRemodexRuntime, *, common_names: list[str]) -> Path | None:
+    exported_paths = export_extra_ca_certificates(runtime, common_names=common_names)
+    if not exported_paths:
+        return None
+    bundle_path = runtime.certs_dir / "extra-ca-bundle.pem"
+    bundle_text = "\n".join(path.read_text(encoding="utf-8").strip() for path in exported_paths if path.exists()).strip()
+    if not bundle_text:
+        return None
+    bundle_path.write_text(bundle_text + "\n", encoding="utf-8")
+    return bundle_path
+
+
+def _runtime_env(
+    installed: InstalledRemodexPaths,
+    *,
+    extra_ca_cert_path: Path | None = None,
+) -> dict[str, str]:
     env = dict(os.environ)
     env["HOME"] = str(installed.home)
     path_entries = [
@@ -225,6 +280,8 @@ def _runtime_env(installed: InstalledRemodexPaths) -> dict[str, str]:
     if existing_path:
         path_entries.extend([entry for entry in existing_path.split(os.pathsep) if entry])
     env["PATH"] = os.pathsep.join(dict.fromkeys(path_entries))
+    if extra_ca_cert_path is not None:
+        env["NODE_EXTRA_CA_CERTS"] = str(extra_ca_cert_path)
     for key in [
         "REMODEX_RELAY",
         "PHODEX_RELAY",
@@ -239,12 +296,12 @@ def _runtime_env(installed: InstalledRemodexPaths) -> dict[str, str]:
     return env
 
 
-def codex_login_status(installed: InstalledRemodexPaths) -> dict[str, Any]:
+def codex_login_status(installed: InstalledRemodexPaths, *, extra_ca_cert_path: Path | None = None) -> dict[str, Any]:
     completed = subprocess.run(
         _node_aware_command(installed.codex_path, installed.node_path, "login", "status"),
         capture_output=True,
         text=True,
-        env=_runtime_env(installed),
+        env=_runtime_env(installed, extra_ca_cert_path=extra_ca_cert_path),
         check=False,
     )
     stdout = completed.stdout.strip()
@@ -273,16 +330,20 @@ def run_upstream_remodex(
     base_dir: Path | None = None,
     command: str = "up",
     thread_id: str | None = None,
+    extra_ca_common_names: list[str] | None = None,
 ) -> int:
-    ensure_codex_authenticated(installed)
     runtime = ensure_patched_runtime(installed, base_dir=base_dir)
+    extra_ca_cert_path = None
+    if extra_ca_common_names:
+        extra_ca_cert_path = build_extra_ca_bundle(runtime, common_names=extra_ca_common_names)
+    ensure_codex_authenticated(installed)
     argv = [str(installed.node_path), str(runtime.entrypoint_path), command]
     if command == "watch" and thread_id:
         argv.append(thread_id)
     completed = subprocess.run(
         argv,
         cwd=str(_repo_root()),
-        env=_runtime_env(installed),
+        env=_runtime_env(installed, extra_ca_cert_path=extra_ca_cert_path),
         check=False,
     )
     return completed.returncode
@@ -294,11 +355,20 @@ def launch_agent_payload(
     base_dir: Path | None = None,
     stdout_log: Path | None = None,
     stderr_log: Path | None = None,
+    extra_ca_common_names: list[str] | None = None,
 ) -> dict[str, Any]:
     runtime = ensure_patched_runtime(installed, base_dir=base_dir)
+    extra_ca_cert_path = build_extra_ca_bundle(runtime, common_names=extra_ca_common_names or [])
     log_root = _log_dir(installed.home)
     stdout_path = (stdout_log or (log_root / "remodex.stdout.log")).expanduser().resolve()
     stderr_path = (stderr_log or (log_root / "remodex.stderr.log")).expanduser().resolve()
+    environment = {
+        "HOME": str(installed.home),
+        "PYTHONPATH": str(_repo_root()),
+        "PATH": _runtime_env(installed, extra_ca_cert_path=extra_ca_cert_path)["PATH"],
+    }
+    if extra_ca_cert_path is not None:
+        environment["NODE_EXTRA_CA_CERTS"] = str(extra_ca_cert_path)
     return {
         "Label": LAUNCH_AGENT_LABEL,
         "ProgramArguments": [
@@ -320,11 +390,7 @@ def launch_agent_payload(
             str(installed.remodex_bin),
         ],
         "WorkingDirectory": str(_repo_root()),
-        "EnvironmentVariables": {
-            "HOME": str(installed.home),
-            "PYTHONPATH": str(_repo_root()),
-            "PATH": _runtime_env(installed)["PATH"],
-        },
+        "EnvironmentVariables": environment,
         "RunAtLoad": True,
         "KeepAlive": True,
         "ThrottleInterval": 10,
@@ -345,12 +411,14 @@ def write_launch_agent_file(
     install_path: Path | None = None,
     stdout_log: Path | None = None,
     stderr_log: Path | None = None,
+    extra_ca_common_names: list[str] | None = None,
 ) -> dict[str, Any]:
     payload = launch_agent_payload(
         installed,
         base_dir=base_dir,
         stdout_log=stdout_log,
         stderr_log=stderr_log,
+        extra_ca_common_names=extra_ca_common_names,
     )
     destination = (install_path or _launch_agent_path(installed.home)).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -375,6 +443,7 @@ def install_launch_agent(
     stdout_log: Path | None = None,
     stderr_log: Path | None = None,
     bootstrap: bool = False,
+    extra_ca_common_names: list[str] | None = None,
 ) -> dict[str, Any]:
     result = write_launch_agent_file(
         installed,
@@ -382,6 +451,7 @@ def install_launch_agent(
         install_path=install_path,
         stdout_log=stdout_log,
         stderr_log=stderr_log,
+        extra_ca_common_names=extra_ca_common_names,
     )
     if bootstrap:
         destination = Path(result["plist_path"])

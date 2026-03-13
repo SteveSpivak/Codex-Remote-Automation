@@ -87,13 +87,20 @@ class RemodexUpstreamTests(unittest.TestCase):
 
             original_patch_source = module._patch_source_path
             original_runtime_metadata_matches = module._runtime_metadata_matches
+            original_build_extra_ca_bundle = module.build_extra_ca_bundle
             module._patch_source_path = lambda: Path(__file__).resolve()
             module._runtime_metadata_matches = lambda runtime, current: True
+            module.build_extra_ca_bundle = lambda runtime, common_names: runtime.certs_dir / "extra-ca-bundle.pem"
             try:
-                payload = launch_agent_payload(installed, base_dir=runtime_root)
+                payload = launch_agent_payload(
+                    installed,
+                    base_dir=runtime_root,
+                    extra_ca_common_names=["palo.cellebrite.local", "CLB-CA"],
+                )
             finally:
                 module._patch_source_path = original_patch_source
                 module._runtime_metadata_matches = original_runtime_metadata_matches
+                module.build_extra_ca_bundle = original_build_extra_ca_bundle
 
             self.assertEqual(payload["Label"], "com.stevespivak.remodex.upstream")
             self.assertIn(str(installed.python_path), payload["ProgramArguments"])
@@ -102,6 +109,7 @@ class RemodexUpstreamTests(unittest.TestCase):
             self.assertIn(str(installed.remodex_bin), payload["ProgramArguments"])
             self.assertEqual(payload["EnvironmentVariables"]["HOME"], str(installed.home))
             self.assertIn(str(installed.node_path.parent), payload["EnvironmentVariables"]["PATH"])
+            self.assertTrue(payload["EnvironmentVariables"]["NODE_EXTRA_CA_CERTS"].endswith("extra-ca-bundle.pem"))
 
     def test_codex_login_status_accepts_logged_in_stdout_even_with_nonzero_exit(self) -> None:
         installed = InstalledRemodexPaths(
