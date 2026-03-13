@@ -1,16 +1,17 @@
 # Codex Remote Automation
 
-Codex Remote Automation (CRA) is an approval-first remote control plane for Codex on macOS. The phone-compatible primary path is now Remodex-style: the Mac keeps a warm `codex app-server` session alive, a Remodex-compatible bridge encrypts mobile traffic, a self-hosted WebSocket relay forwards only opaque envelopes, and the Remodex iPhone app connects over the bridge protocol.
+Codex Remote Automation (CRA) is an approval-first remote control plane for Codex on macOS. The current implementation strategy is upstream-first: prove the official [Remodex](https://github.com/Emanuele-web04/remodex) package and iPhone app work end-to-end, wrap them thinly for CRA audit and policy needs, and fork only where the upstream package cannot satisfy a hard requirement.
 
-This repository contains the Remodex-compatible bridge code, the self-hosted relay, a CRA iOS client skeleton for future custom work, specialist CRA skills, repo-native Codex guidance, and explicit fallback tooling. Shortcuts, iMessage, Accessibility, AppleScript, and OCR remain in the repo as transitional or discovery paths only.
+This repository contains CRA skills, repo-native Codex guidance, the existing CRA broker and fallback tooling, and a `remodex/` compatibility-study folder that is no longer the canonical implementation path.
 
 ## Architecture Summary
 
-- Primary path: `codex app-server` -> warm Remodex-compatible bridge -> encrypted session envelopes -> self-hosted relay -> Remodex iPhone app -> bridge decision response -> Codex
-- Replay and testing path: `codex exec --json`, broker replay fixtures, and bridge protocol tests
+- Primary proof path: official `remodex up` -> official Remodex iPhone app -> selected relay path -> Codex
+- CRA extension path: thin wrapper around upstream bridge outputs for approval audit, policy, and local operator guidance
+- Replay and testing path: `codex exec --json`, broker replay fixtures, and upstream bridge validation checks
 - Transitional fallback path: Shortcuts or iMessage for operator decisions when the Remodex app path is unavailable
-- Discovery/emergency fallback path: Accessibility, AppleScript, screenshot, and OCR helpers under `cra/`, `scripts/`, and `references/discovery/`
-- Security model: relay is transport-only, approval payloads remain encrypted in transit, replay protection is mandatory, and human approval is preserved throughout
+- Discovery and emergency fallback path: Accessibility, AppleScript, screenshot, and OCR helpers under `cra/`, `scripts/`, and `references/discovery/`
+- Fork gate: do not reimplement the bridge or relay until upstream `remodex` completes a known-good phone pairing for the target environment
 
 ## Repository Layout
 
@@ -22,45 +23,46 @@ This repository contains the Remodex-compatible bridge code, the self-hosted rel
 |-- AGENTS.md
 |-- README.md
 |-- cra/
-|   `-- bridge/
 |-- ios/
 |   `-- CRAOperatorApp/
 |-- relay/
+|-- remodex/
 |-- launchd/
 |-- references/
+|   |-- bridge/
+|   |-- discovery/
+|   |-- research/
 |   |-- cra-anti-patterns.md
 |   |-- cra-charter.md
 |   |-- cra-standards.md
-|   |-- bridge/
-|   |-- discovery/
 |   |-- output-contracts.md
 |   `-- shortcuts-runbook.md
-|-- security/
 |-- scripts/
 `-- skills/
-    |-- cra-backend-developer/SKILL.md
-    |-- cra-macos-engineer/SKILL.md
-    |-- cra-network-architect/SKILL.md
-    |-- cra-orchestrator/SKILL.md
-    |-- cra-security-specialist/SKILL.md
-    `-- cra-test-engineer/SKILL.md
 ```
 
-## Remodex Bridge Quick Start
+## Upstream Remodex Quick Start
 
-Use these commands from the repo root to exercise the primary bridge path:
+Use these commands to validate the official upstream path first:
 
 ```bash
-node relay/server.js
-node remodex/bridge.js --relay-url ws://127.0.0.1:8787 --pair-only
-node remodex/bridge.js --relay-url ws://127.0.0.1:8787
+npm install -g remodex@latest
+remodex up
+remodex resume
+remodex watch
+```
+
+If you need to override the relay during local testing, use `REMODEX_RELAY=... remodex up`.
+
+Use these repo-local commands to inspect the CRA environment around that upstream path:
+
+```bash
 codex app-server --help
 codex exec --help
 python3 -m cra.cli broker-replay --input tests/fixtures/broker_command_flow.jsonl --auto-decision decline
 python3 -m cra.cli broker-summarize
 python3 -m unittest discover -s tests -p 'test_*.py'
 node --test tests/node/*.test.js
-node --check relay/server.js
 ```
 
 Repo-native Codex commands are checked in under `.codex/commands/`:
@@ -70,11 +72,22 @@ Repo-native Codex commands are checked in under `.codex/commands/`:
 - `/cra-app-server-readiness`
 - `/cra-bridge-readiness`
 
-The Remodex-compatible bridge source lives under [remodex](/Users/steve.spivak/Documents/MAcosAutomation/remodex). The in-repo CRA iOS operator client source still lives under [CRAOperatorApp](/Users/steve.spivak/Documents/MAcosAutomation/ios/CRAOperatorApp), but it is now secondary/experimental rather than the primary mobile path.
+## Upstream Research Notes
 
-## Transitional Fallback Quick Start
+Current findings from the upstream README, installed npm package, and local runtime checks:
 
-Run the Shortcuts or iMessage path only while the native iOS app is incomplete or unavailable:
+- The official npm package exposes `remodex up`, `remodex resume`, and `remodex watch`.
+- Upstream defaults `REMODEX_RELAY` to `wss://api.phodex.app/relay`.
+- The upstream README says the full phone-to-Mac flow still depends on `api.phodex.app` during the current testing phase.
+- The README says self-hosting is supported in principle and the relay code is available, but that does not make every local `ws://` setup a known-good production path.
+- The bridge persists state under `~/.remodex` and, on macOS, attempts Keychain-backed storage for bridge identity.
+- `REMODEX_PUSH_SERVICE_URL` can be overridden or emptied, but hosted relay and notification expectations still need proof in the target environment.
+
+See [upstream research notes](references/research/remodex-upstream-assessment.md) for the current evidence set.
+
+## Transitional Fallback Paths
+
+Run the Shortcuts or iMessage path only while the upstream Remodex path is unavailable or under investigation:
 
 ```bash
 python3 -m cra.cli broker-service --prompt "Run git status and wait for approval"
@@ -85,8 +98,6 @@ python3 -m cra.cli build-broker-response-ssh-command --request-id <request_id> -
 python3 -m cra.cli imessage-poll --handle <your-imessage-handle>
 python3 -m cra.cli imessage-parse --text "decline <request_id>"
 ```
-
-## Discovery And Emergency Fallback
 
 Run the hybrid-native checks only for fallback discovery or emergency UI experimentation:
 
@@ -101,16 +112,15 @@ python3 -m cra.cli capture-window-ocr --app-name Codex --output references/disco
 python3 -m cra.cli shortcut-entry --decision approve --action-id 11111111-1111-4111-8111-111111111111
 ```
 
-The discovery path uses `action_id`, Accessibility selectors, and OCR helpers. Those contracts are intentionally scoped to fallback docs and prototype testing.
-
 ## Core Docs
 
 - [Project charter](references/cra-charter.md)
 - [CRA standards](references/cra-standards.md)
 - [CRA anti-patterns](references/cra-anti-patterns.md)
 - [CRA output contracts](references/output-contracts.md)
-- [Secure bridge protocol](references/bridge/secure-bridge-protocol.md)
-- [Remodex bridge notes](remodex/README.md)
+- [Secure bridge protocol notes](references/bridge/secure-bridge-protocol.md)
+- [Upstream Remodex research](references/research/remodex-upstream-assessment.md)
+- [Remodex compatibility-study notes](remodex/README.md)
 - [Shortcuts runbook (fallback)](references/shortcuts-runbook.md)
 - [Shortcut build pack](references/shortcuts/cra-operator-shortcut.md)
 - [Stage 0 fallback feasibility notes](references/discovery/stage-0-feasibility.md)
@@ -125,3 +135,4 @@ The discovery path uses `action_id`, Accessibility selectors, and OCR helpers. T
 - [CRA network architect](skills/cra-network-architect/SKILL.md)
 - [CRA security specialist](skills/cra-security-specialist/SKILL.md)
 - [CRA test engineer](skills/cra-test-engineer/SKILL.md)
+- [CRA upstream integration](skills/cra-upstream-integration/SKILL.md)

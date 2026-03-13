@@ -1,22 +1,22 @@
 # CRA Secure Bridge Protocol
 
-This document describes the primary CRA path after the Remodex-compatible pivot.
+This document now describes CRA's compatibility and wrapper expectations around the upstream Remodex transport model. It is not a license to replace the upstream bridge before the upstream path is proven.
 
 ## Scope
 
 The secure bridge protocol exists only to move approval requests and decisions between:
 
-- the warm CRA Bridge on the Mac
-- the self-hosted relay
-- the Remodex-compatible iPhone app
+- the upstream Remodex bridge or an explicitly approved CRA wrapper on the Mac
+- the selected relay path, which may be hosted or self-hosted depending on the current evidence
+- the official Remodex iPhone app
 
 It does not replace the canonical approval contract. It wraps that contract in pairing, reconnect, and encrypted transport behavior.
 
 ## Step-By-Step Session Flow
 
-1. Start the local relay.
-2. Start or inspect the warm CRA Bridge on the Mac.
-3. Generate a short-lived pairing payload with the Remodex-compatible bridge.
+1. Start or inspect the upstream bridge on the Mac.
+2. Start the selected relay path.
+3. Generate a short-lived pairing payload with the upstream bridge or approved CRA wrapper.
 4. Show the generated QR or pairing JSON to the phone.
 5. The phone scans the pairing payload and opens a relay session as `role=iphone`.
 6. The phone sends `clientHello`.
@@ -41,15 +41,9 @@ The relay is transport-only.
 
 ## Bridge Artifacts
 
-The bridge writes local runtime artifacts under `var/remodex-bridge/` by default:
+Current upstream evidence says the bridge persists device identity under `~/.remodex` and attempts Keychain-backed storage on macOS. CRA-specific wrapper or compatibility-study artifacts may also exist in repo-local locations such as `var/remodex-bridge/`, but those are not the baseline source of truth.
 
-- `device-state.json`: stable bridge device identity and trusted phones
-- `pairing-payload.json`: current Remodex-compatible pairing payload for the active session
-- `pairing-qr.png`: scannable QR image for the Remodex app
-- `pairing-qr.txt`: human-readable pairing JSON payload
-- `bridge-state.json`: current runtime status and pending approvals
-
-Audit streams are written under `var/audit/` by default:
+CRA audit streams are written under `var/audit/` by default:
 
 - `bridge-wire.jsonl`
 - `bridge-events.jsonl`

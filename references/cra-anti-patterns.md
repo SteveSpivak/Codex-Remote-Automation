@@ -2,29 +2,29 @@
 
 The following patterns are explicitly out of bounds for Codex Remote Automation (CRA).
 
-## Protocol and Eventing
+## Upstream And Architecture
 
-- Do not treat Codex log parsing as the primary approval source when App Server approval requests are available.
+- Do not treat source availability as proof that self-hosting is already a supported production path.
+- Do not reimplement the full bridge or relay before proving the upstream `remodex` path in the target environment.
+- Do not keep repo docs claiming that the in-repo `remodex/` compatibility study is the canonical implementation path.
 - Do not invent a second canonical approval contract alongside the App Server request and response identifiers.
-- Do not resolve approvals without carrying `request_id` through to the final broker response.
-- Do not let the relay become an approval-aware service that inspects or rewrites payload plaintext.
 
-## Network and Security
+## Network And Mobile
 
-- Do not use router port forwarding, dynamic DNS, or any public-internet SSH exposure.
-- Do not allow password-based SSH as a fallback.
-- Do not depend on a managed relay when the architecture requires a self-hosted transport-only relay.
-- Do not let the mobile device or relay gain broader network reach than the approval workflow requires.
+- Do not assume a plain local `ws://` relay is equivalent to the hosted upstream relay path without phone-side proof.
+- Do not hardcode the Mac's local IP address into the long-term architecture.
+- Do not treat the relay as a business-logic service that inspects approval plaintext.
+- Do not let Shortcuts or iMessage remain framed as the primary operator surface after the upstream-first pivot.
 
-## UI Fallback
+## Security
 
-- Do not make AppleScript, Accessibility, OCR, or screenshot targeting the primary approval architecture.
-- Do not target UI elements by screen coordinates, tab order, or fragile positional assumptions unless you are explicitly in fallback mode.
-- Do not let fallback tooling drift into normal operations without updating the charter and standards.
-- Do not keep Shortcuts or iMessage framed as the primary operator surface after the Remodex bridge pivot.
+- Do not treat the hosted-vs-self-hosted relay decision as cosmetic.
+- Do not allow approval responses without `request_id`.
+- Do not rely on screenshots or OCR as an audit source for normal operations.
+- Do not let fallback UI automation drift into normal operations without explicit architecture change approval.
 
-## Repo and Workflow
+## Workflow
 
-- Do not leave repo docs claiming that Shortcuts, iMessage, watcher daemons, Pushcut/Pushover, or desktop-button clicks are the canonical architecture after the bridge pivot.
+- Do not wait for a full custom implementation before proving the upstream package behavior.
+- Do not claim self-hosted relay viability without naming the evidence source.
 - Do not add a custom recurring scheduler when Codex automations and Triage are sufficient for the recurring check.
-- Do not remove the human approval gate for convenience or perceived speed.

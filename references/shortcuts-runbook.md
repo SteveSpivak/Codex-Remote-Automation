@@ -1,6 +1,8 @@
 # CRA Shortcuts Runbook
 
-Shortcuts is now a transitional CRA fallback path. The primary operator surface is a Remodex-compatible iPhone app over the secure bridge and self-hosted relay.
+This runbook is for fallback and development use only. The primary mobile proof path is now the official upstream Remodex package and iPhone app.
+
+Shortcuts is now a transitional CRA fallback path. The primary operator proof path is the official upstream Remodex bridge and iPhone app over the currently selected relay path.
 
 Use this runbook when:
 

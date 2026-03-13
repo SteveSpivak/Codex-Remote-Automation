@@ -1,6 +1,6 @@
 # CRA Output Contracts
 
-The orchestrator and specialist skills use the following output contracts to keep multi-step CRA work consistent.
+The orchestrator and specialist skills use the following output contracts to keep multi-step CRA work consistent. These contracts describe CRA-facing payloads around the upstream Remodex baseline; they do not authorize reimplementing the upstream bridge without evidence.
 
 ## Canonical Approval Request
 
@@ -41,7 +41,7 @@ The orchestrator and specialist skills use the following output contracts to kee
 }
 ```
 
-This QR payload is encoded as raw JSON for the Remodex iPhone app to scan. The older CRA-specific shared-secret pairing payload remains legacy fallback code only and is not the primary mobile contract.
+This QR payload is encoded as raw JSON for the Remodex iPhone app to scan. The upstream package and README are the source of truth for pairing behavior; this repo mirrors the current expected shape for planning, wrappers, and validation only.
 
 ## Bridge Control Messages
 

@@ -1,48 +1,26 @@
-# Remodex-Compatible Bridge
+# Remodex Compatibility Study
 
-This folder contains the phone-compatible bridge path for CRA.
+This folder is an experiment and compatibility study, not the canonical CRA implementation path.
 
-## What It Does
+## Purpose
 
-- launches a local `codex app-server`
-- keeps the Codex session warm across relay reconnects
-- emits a Remodex-compatible QR payload
-- performs Remodex-compatible secure pairing and reconnect
-- forwards decrypted app messages to Codex and returns Codex messages through encrypted envelopes
+- capture what CRA learned while reverse-engineering and emulating upstream Remodex behavior
+- provide a local sandbox for protocol experiments
+- preserve research artifacts that may inform a future minimal fork
 
-## Run
+## What This Folder Is Not
 
-Start the relay first:
+- not the primary bridge implementation
+- not proof that the Remodex iPhone app supports every self-hosted relay shape here
+- not a substitute for proving the official upstream `remodex` package first
 
-```bash
-node relay/server.js
-```
+## Current Policy
 
-Then start the bridge:
+1. Prove the official upstream package and app first.
+2. Wrap upstream behavior thinly for CRA audit and policy needs.
+3. Fork only if upstream proof identifies a hard blocker.
 
-```bash
-node remodex/bridge.js --relay-url ws://<reachable-host>:8787
-```
+## Related Docs
 
-The bridge writes these runtime artifacts under `var/remodex-bridge/` by default:
-
-- `pairing-qr.png`
-- `pairing-qr.txt`
-- `pairing-payload.json`
-- `bridge-state.json`
-- `device-state.json`
-
-## Pair-Only Mode
-
-If you only need a fresh QR without launching Codex:
-
-```bash
-node remodex/bridge.js --relay-url ws://<reachable-host>:8787 --pair-only
-```
-
-## Compatibility Notes
-
-- The QR encodes the raw Remodex pairing JSON, not a custom URI.
-- The relay accepts the Remodex-style `/<sessionId>` path and `x-role` header.
-- The older CRA-specific Python bridge remains in the repo, but it is not compatible with the Remodex iPhone app.
-
+- [Upstream research notes](../references/research/remodex-upstream-assessment.md)
+- [Project charter](../references/cra-charter.md)

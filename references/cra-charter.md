@@ -1,5 +1,5 @@
 # Project Charter: Codex Remote Automation (CRA)
-**Version:** 2.0  
+**Version:** 2.1  
 **Status:** Active  
 **Owner:** Steve Spivak  
 **Last updated:** 2026-03-13
@@ -8,9 +8,9 @@
 
 ## 1. Problem Statement
 
-Codex can surface high-stakes approval points while working across files, commands, and long-running tasks. A human should be able to review and decide on those approvals from an iPhone without staying at the Mac and without relying on brittle desktop-button automation or ad hoc mobile shortcuts as the primary control plane.
+Codex surfaces high-stakes approval points while working across files, commands, and long-running tasks. A human should be able to review and decide on those approvals from an iPhone without staying at the Mac and without relying on brittle desktop-button automation.
 
-Project CRA solves this by inserting a warm local CRA Bridge between Codex and the operator. The primary phone-compatible implementation now follows the Remodex transport model: the bridge consumes Codex approval events through `codex app-server`, synchronizes them over encrypted envelopes through a self-hosted relay, and returns the operator's decision back to Codex from a Remodex-compatible iPhone client.
+CRA solves this by using `codex app-server` as the approval source and, for the current delivery strategy, proving the official Remodex bridge and iPhone app first. CRA then layers audit, policy, and operator guidance around that working baseline instead of prematurely reimplementing bridge or relay behavior.
 
 ---
 
@@ -20,44 +20,48 @@ Project CRA solves this by inserting a warm local CRA Bridge between Codex and t
 |------|--------------------|
 | Real-time Codex approval from iOS | Approve or decline any Codex approval request within 2 seconds of notification |
 | Sub-0.5s feedback loop | iPhone tap -> broker response in < 500ms (P95) |
+| Upstream-first delivery | Official `remodex` package proven before bridge or relay forking |
 | Protocol-first control plane | Primary path uses App Server approval events, not GUI scraping or Shortcut-only glue |
-| Transport-only relay | Relay routes encrypted envelopes and never sees approval plaintext |
-| Zero exposed attack surface | No public-internet SSH; no managed relay dependency; no cloud-sync polling |
 | Stable replay and validation | Approval transcripts can be replayed and tested with `codex exec --json` or App Server fixtures |
 
 ### Non-goals
 
 - Building a general remote-control framework for arbitrary macOS apps
 - Making desktop Accessibility or OCR the primary approval path
+- Reimplementing the full Remodex bridge or relay before upstream proof exists
 - Building a general mobile Codex chat client or Git workstation in v1
 - Removing the human approval gate
 - Supporting multiple simultaneous approvers in v1
 
 ---
 
-## 3. Architecture
+## 3. Architecture Strategy
 
-### 3.1 Topology
+### 3.1 Delivery Order
 
 ```text
 Codex (macOS, App Server)
-    ↓ JSON-RPC approval request
-CRA Bridge (local, warm session)
-    ↓ encrypted approval envelope
-self-hosted relay (transport only)
-    ↓ encrypted approval envelope
-Remodex-compatible iPhone app
-    ↓ encrypted decision envelope
-self-hosted relay
-    ↓ encrypted decision envelope
-CRA Bridge
-    ↓ JSON-RPC approval response
-Codex continues
+    ↓
+official remodex bridge (`remodex up`)
+    ↓
+official Remodex iPhone app
+    ↓
+decision returned to Codex
 ```
 
-`codex exec --json` is the secondary surface for replay fixtures, contract validation, and long-horizon testing. Shortcuts, iMessage, and the existing Accessibility/OCR tooling remain available as fallback and discovery support only.
+CRA-specific additions come only after that baseline is proven:
 
-### 3.2 Canonical approval request
+```text
+Codex
+    ↓
+upstream Remodex baseline
+    ↓
+CRA audit / policy / wrapper layer
+    ↓
+operator reporting and replay evidence
+```
+
+### 3.2 Canonical Approval Request
 
 ```json
 {
@@ -72,11 +76,7 @@ Codex continues
 }
 ```
 
-- `request_id` is the canonical response handle
-- `thread_id`, `turn_id`, and `item_id` preserve Codex protocol identity for audit and replay
-- `summary` must be sanitized before it is shown on the phone or logged
-
-### 3.3 Canonical approval response
+### 3.3 Canonical Approval Response
 
 ```json
 {
@@ -85,121 +85,118 @@ Codex continues
 }
 ```
 
-### 3.4 Bridge and mobile transport path
+### 3.4 Upstream-First Rules
 
-- The CRA Bridge keeps the local App Server session warm across phone disconnects
-- The relay is self-hosted and transport-only: it can see session metadata, but not approval payload plaintext
-- A Remodex-compatible iPhone app is the primary operator surface
-- QR bootstrap is the default first-pairing mechanism; trusted reconnect is the default steady-state mechanism
-- Shortcuts or iMessage may be used only as transitional fallback tooling when the Remodex app path is unavailable
-- The transport returns a decision to the bridge; it does not drive the Codex desktop UI directly
+- The official `remodex` package is the primary bridge baseline.
+- The official Remodex iPhone app is the primary mobile client baseline.
+- The in-repo `remodex/` folder is a compatibility study and experiment, not the canonical implementation path.
+- The relay path must be treated as unproven until the phone completes a known-good pair and approval round-trip in the target environment.
+- CRA may wrap, observe, and audit upstream behavior before it forks it.
 
-### 3.5 Fallback path
+### 3.5 Decision Gate For Forking
 
-- Accessibility, AppleScript, and OCR helpers are retained for discovery, emergency fallback, and protocol-gap investigation
-- Fallback tooling may use `action_id`, `AXDescription`, or OCR text targeting within the prototype code under `cra/` and `references/discovery/`
-- Fallback tooling must be explicitly labeled as fallback in documentation and operator runbooks
+Fork the minimum surface necessary only if one of these becomes true:
 
-### 3.6 Explicitly rejected alternatives
+- upstream bridge behavior cannot satisfy a required approval audit or policy requirement
+- upstream relay assumptions violate a hard project constraint
+- the iPhone app blocks the required deployment model
+- an unsupported extension point is required and cannot be added through wrapping
 
-| Alternative | Reason rejected |
-|-------------|-----------------|
-| Desktop-button automation as the primary architecture | Too brittle relative to App Server approval events |
-| Codex log parsing as the primary approval source | Inferential and weaker than protocol-native approval requests |
-| Managed relay dependency | Unnecessary trust boundary for a transport-only relay the operator can self-host |
-| iCloud / Dropbox / Google Drive polling | Sync latency, collision risk, and poor auditability |
-| Dynamic DNS + router port forward | Exposes the bridge or Mac to the public internet |
-| Shortcut-only operator path as the long-term architecture | Too brittle and too constrained for pairing, reconnect, and encrypted session management |
+### 3.6 Fallback Paths
+
+- Shortcuts, iMessage, Accessibility, AppleScript, and OCR remain fallback or discovery tools only
+- Fallback tooling may use `action_id`, `AXDescription`, or OCR targeting inside the prototype code under `cra/` and `references/discovery/`
+- Fallback tooling must be explicitly labeled fallback in documentation and reports
 
 ---
 
-## 4. Implementation Phases
+## 4. Research Priorities
 
-### Phase 1 — Protocol foundation
-
-- Validate `codex app-server` and `codex exec --json` surfaces locally
-- Freeze the approval request and response contracts
-- Align repo docs, skills, `AGENTS.md`, and `.codex` guidance around the App-Server-first model
-- **Milestone:** repo guidance and contracts all reflect the protocol-first architecture
-
-### Phase 2 — Bridge core
-
-- Implement a local CRA Bridge core that connects to `codex app-server` over `stdio`
-- Normalize approval requests, audit raw and sanitized events, and expose a mobile-safe request contract
-- Add transcript fixtures and replay support
-- **Milestone:** live approval request -> normalized bridge payload -> auditable local record
-
-### Phase 3 — Secure bridge and relay
-
-- Turn the local broker into a long-lived CRA Bridge with warm-session semantics
-- Add QR bootstrap, trusted reconnect, encrypted envelopes, and replay protection
-- Implement the self-hosted transport-only relay
-- **Milestone:** pending approvals survive reconnect and relay plaintext exposure is eliminated
-
-### Phase 4 — Mobile client compatibility
-
-- Build and maintain Remodex-compatible mobile pairing, reconnect, pending approval sync, and decision submission
-- Keep the response contract fixed to `request_id + decision`, with optional note for CRA-local audit only
-- **Milestone:** paired Remodex-compatible iPhone app resolves the matching bridge request end-to-end
-
-### Phase 5 — Fallback, QA, and hardening
-
-- Keep Shortcuts, iMessage, Accessibility, and OCR as explicit fallback or discovery tooling
-- Replay approval fixtures and reconnect scenarios with `codex exec --json` and App Server transcripts
-- Exercise resilience scenarios: duplicate decisions, stale `request_id`, sleep/wake, relay reconnect, and revoked permissions
-- **Milestone:** KPI targets met and replay evidence captured
-
-Future recurring checks should use Codex automations and Triage when native automations are sufficient.
+1. Confirm upstream package commands, env vars, and state paths
+2. Confirm whether self-hosted local relay is officially viable or only theoretically possible
+3. Confirm whether the iPhone app requires `wss://` or hosted relay semantics
+4. Confirm push and notification dependencies for a complete approval flow
+5. Confirm which CRA requirements truly need a wrapper and which would force a fork
 
 ---
 
-## 5. Risks
+## 5. Implementation Phases
+
+### Phase 1 — Upstream Proof
+
+- Validate `remodex up`, `remodex resume`, and `remodex watch`
+- Capture env vars, state paths, and runtime behavior
+- Complete a known-good phone pairing and relay connection
+- **Milestone:** upstream bridge and phone app are proven in the target environment
+
+### Phase 2 — CRA Wrapper
+
+- Add thin CRA audit, policy, and operator-facing guidance around upstream behavior
+- Preserve the canonical request and response contracts
+- Add replay and local validation around upstream outputs
+- **Milestone:** upstream bridge plus CRA wrapper produces auditable approval evidence
+
+### Phase 3 — Relay Decision
+
+- Decide whether hosted relay use is acceptable for the project
+- If not acceptable, fork the minimum relay or bridge surface required
+- Keep the fork narrow and evidence-based
+- **Milestone:** hosted-vs-self-hosted decision is locked with evidence
+
+### Phase 4 — Hardening And Fallback
+
+- Add reconnect, duplicate-decision, stale-request, and resilience checks
+- Keep Shortcuts, iMessage, Accessibility, and OCR as explicit fallback only
+- **Milestone:** KPI targets and proof matrix met
+
+---
+
+## 6. Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| App Server protocol changes | Medium | High | Validate against `codex app-server --help` and shared contract docs before implementation |
+| Upstream app requires hosted relay semantics | Medium | High | Prove the official path before self-hosting work |
+| iPhone app rejects local `ws://` relay | Medium | High | Validate `wss://` and ATS expectations before relay fork |
+| Premature bridge fork drifts from upstream behavior | High | High | Upstream-first rule plus explicit fork gate |
 | Decision replay or mismatch | Medium | High | Use `request_id` as the response handle and record the full request/response pair |
-| Relay reconnect or phone handoff failure | Medium | High | Trusted reconnect, pending snapshot catch-up, and explicit stale-request handling |
-| Pairing secret misuse | Low | High | Short QR expiry, bridge-side trust store, and key rotation |
-| Broker and mobile payload drift | Medium | High | Single canonical request/response examples in shared docs and tests |
-| Accessibility or OCR fallback drifts after Codex updates | High | Medium | Keep fallback isolated and clearly secondary |
-| Managed or third-party relay compromise | Low | High | Self-host the relay and keep it blind to approval plaintext |
+| Hosted relay risk exceeds project constraints | Medium | High | Security review and minimal fork decision gate |
+| Fallback tooling becomes normal path | High | Medium | Keep fallback isolated and explicitly labeled |
 
 ---
 
-## 6. KPIs
+## 7. KPIs
 
 | Metric | Target |
 |--------|--------|
 | Outbound notification latency (approval request -> phone visible) | < 2.0s |
 | Inbound feedback latency (tap -> broker response) | < 500ms P95 |
-| Relay plaintext exposure | 0 plaintext approval payloads visible to relay |
 | Protocol/request mismatch rate | 0% |
 | Replay fixture success rate | 100% on approved test corpus |
-| Idle bridge overhead | < 1% CPU and < 50 MB RAM |
+| Idle wrapper overhead | < 1% CPU and < 50 MB RAM |
 | Fallback activation frequency | Near-zero in normal operation |
 
 ---
 
-## 7. Roles
+## 8. Roles
 
 | Role | Responsibility |
 |------|---------------|
-| CRA Orchestrator | Cross-skill routing, phase ordering, final contract assembly |
-| Backend / Bridge Developer | App Server client, bridge runtime, JSON-RPC handling, transcript normalization, replay fixtures |
-| macOS / Codex Environment Engineer | Repo `.codex` setup, App Server lifecycle, bridge residency, QR artifact generation, fallback Accessibility/OCR tooling |
-| Networking & Mobile Architect | Self-hosted relay, native iOS client transport, pairing/reconnect UX, fallback Shortcuts when needed |
-| Security Specialist | Bridge threat model, pairing and reconnect hardening, relay blindness, transcript integrity, approval authenticity |
-| Test Engineer | Replay suites, pairing/reconnect validation, KPI evidence, fallback reliability checks |
+| CRA Orchestrator | Cross-skill routing, evidence ordering, and fork-gate enforcement |
+| CRA Upstream Integration | Package-fit evaluation, extension points, wrap-vs-fork decisions, and upgrade policy |
+| Backend / Wrapper Developer | CRA audit, policy, transcript normalization, replay fixtures, and wrapper logic around upstream outputs |
+| macOS / Codex Environment Engineer | Remodex install, env vars, local state, `.codex`, launchd, and fallback tooling |
+| Networking & Mobile Architect | Relay viability, TLS, hosted-vs-self-hosted decision work, and iPhone connectivity |
+| Security Specialist | Trust boundaries, state storage, relay blindness, hosted-vs-self-hosted risk, and approval authenticity |
+| Test Engineer | Upstream proof matrix, reconnect validation, KPI evidence, and fallback reliability checks |
 
 ---
 
-## 8. Definition of Done
+## 9. Definition of Done
 
-- [ ] App-Server-first CRA Bridge path implemented and documented
+- [ ] Upstream `remodex` path proven with a real phone pairing
 - [ ] Canonical request and response contracts aligned across docs, skills, and tests
-- [ ] Self-hosted relay and encrypted session envelopes validated
-- [ ] Native iPhone operator app resolves live approvals
-- [ ] Replay fixtures and long-horizon validation evidence captured
+- [ ] Hosted-vs-self-hosted decision made with explicit evidence
+- [ ] CRA wrapper responsibilities separated from upstream bridge ownership
+- [ ] Replay fixtures and validation evidence captured
 - [ ] Transitional fallback tooling explicitly documented as secondary
-- [ ] Repo-local Codex guidance (`AGENTS.md`, `.codex/`) checked in and aligned with the charter
+- [ ] Repo-local Codex guidance (`AGENTS.md`, `.codex/`) aligned with the upstream-first strategy
