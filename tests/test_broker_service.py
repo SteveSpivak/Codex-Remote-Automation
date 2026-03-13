@@ -87,6 +87,7 @@ class BrokerServiceTests(unittest.TestCase):
             payload = enqueue_broker_response(
                 request_id="req-1",
                 decision="decline",
+                operator_note="Need a manual check",
                 runtime_paths=runtime_paths,
             )
             queued, _ = load_response_requests(runtime_paths.response_queue_path)
@@ -94,6 +95,7 @@ class BrokerServiceTests(unittest.TestCase):
         self.assertEqual(payload["status"], "queued")
         self.assertEqual(queued[0]["request_id"], "req-1")
         self.assertEqual(queued[0]["decision"], "decline")
+        self.assertEqual(queued[0]["operator_note"], "Need a manual check")
 
     def test_enqueue_broker_response_rejects_duplicate_or_unknown_request(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

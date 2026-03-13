@@ -26,6 +26,28 @@ The orchestrator and specialist skills use the following output contracts to kee
 }
 ```
 
+`operator_note` may be carried by the Shortcut or other operator surface for CRA audit, but it is not part of the canonical Codex approval response sent back to App Server.
+
+## Shortcut Operator Payload
+
+```json
+{
+  "title": "CRA approval required",
+  "subtitle": "command_execution | file_change",
+  "request_id": "<opaque approval callback id>",
+  "summary": "<sanitized operator-facing summary>",
+  "decision_options": [
+    {"value": "accept", "label": "Accept"},
+    {"value": "acceptForSession", "label": "Accept for Session"},
+    {"value": "decline", "label": "Decline"},
+    {"value": "cancel", "label": "Cancel"}
+  ],
+  "default_decision": "decline",
+  "operator_note_enabled": true,
+  "operator_note_prompt": "Optional note for CRA audit"
+}
+```
+
 ## Orchestrator Output
 
 The orchestrator should assemble final delivery using these sections:

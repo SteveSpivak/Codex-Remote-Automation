@@ -94,10 +94,13 @@ class BrokerApprovalRequest:
 class BrokerApprovalResponse:
     request_id: str
     decision: BrokerDecision
+    operator_note: str | None = None
 
     def to_dict(self) -> Dict[str, str]:
         payload = asdict(self)
         payload["decision"] = self.decision.value
+        if self.operator_note is None:
+            payload.pop("operator_note", None)
         return payload
 
 

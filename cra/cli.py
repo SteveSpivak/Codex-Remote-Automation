@@ -29,6 +29,7 @@ from .broker_service import (
 from .discovery import SENTRY_SCOPE_PATH, discover_codex_environment
 from .imessage import parse_response_message, poll_imessages, send_imessage
 from .shortcuts import (
+    build_shortcut_approval_payload,
     build_broker_response_ssh_command,
     build_ssh_command,
     handle_shortcut_entry,
@@ -179,12 +180,21 @@ def main() -> int:
     )
     broker_pending_parser.add_argument("--runtime-dir", default="var/run")
 
+    broker_shortcut_payload_parser = subparsers.add_parser(
+        "broker-shortcut-payload",
+        help="Build a Shortcut-ready payload for a pending approval.",
+    )
+    broker_shortcut_payload_parser.add_argument("--runtime-dir", default="var/run")
+    broker_shortcut_payload_parser.add_argument("--request-id")
+    broker_shortcut_payload_parser.add_argument("--all", action="store_true")
+
     broker_respond_parser = subparsers.add_parser(
         "broker-respond",
         help="Queue an approval decision for a running broker service.",
     )
     broker_respond_parser.add_argument("--request-id", required=True)
     broker_respond_parser.add_argument("--decision", required=True, choices=["accept", "acceptForSession", "decline", "cancel"])
+    broker_respond_parser.add_argument("--operator-note")
     broker_respond_parser.add_argument("--runtime-dir", default="var/run")
 
     broker_ssh_command_parser = subparsers.add_parser(
@@ -193,6 +203,7 @@ def main() -> int:
     )
     broker_ssh_command_parser.add_argument("--request-id", required=True)
     broker_ssh_command_parser.add_argument("--decision", required=True, choices=["accept", "acceptForSession", "decline", "cancel"])
+    broker_ssh_command_parser.add_argument("--operator-note")
     broker_ssh_command_parser.add_argument("--runtime-dir")
     broker_ssh_command_parser.add_argument("--python-path", default="python3")
 
@@ -368,12 +379,57 @@ def main() -> int:
         _json_print(read_runtime_state(runtime_paths.state_path))
         return 0
 
+    if args.command == "broker-shortcut-payload":
+        runtime_paths = default_broker_runtime_paths(runtime_dir=Path(args.runtime_dir))
+        state_payload = read_runtime_state(runtime_paths.state_path)
+        pending = state_payload.get("pending_approvals", [])
+        if not isinstance(pending, list):
+            raise ValueError("pending_approvals must be a list in runtime state.")
+
+        if args.request_id:
+            selected = [
+                approval for approval in pending
+                if isinstance(approval, dict) and approval.get("request_id") == args.request_id
+            ]
+        elif args.all:
+            selected = [approval for approval in pending if isinstance(approval, dict)]
+        else:
+            selected = [pending[0]] if pending else []
+
+        def to_shortcut_payload(approval: dict[str, object]) -> dict[str, object]:
+            from .models import ApprovalKind, BrokerApprovalRequest, BrokerDecision
+
+            return build_shortcut_approval_payload(
+                BrokerApprovalRequest(
+                    request_id=str(approval["request_id"]),
+                    thread_id=str(approval["thread_id"]),
+                    turn_id=str(approval["turn_id"]),
+                    item_id=str(approval["item_id"]),
+                    kind=ApprovalKind(str(approval["kind"])),
+                    summary=str(approval["summary"]),
+                    available_decisions=[BrokerDecision(value) for value in approval["available_decisions"]],
+                    timestamp=str(approval["timestamp"]),
+                    wire_request_id=str(approval["request_id"]),
+                )
+            )
+
+        payload = [to_shortcut_payload(approval) for approval in selected]
+        _json_print(
+            {
+                "status": "ok",
+                "count": len(payload),
+                "payload": payload if args.all else (payload[0] if payload else None),
+            }
+        )
+        return 0
+
     if args.command == "broker-respond":
         runtime_paths = default_broker_runtime_paths(runtime_dir=Path(args.runtime_dir))
         _json_print(
             enqueue_broker_response(
                 request_id=args.request_id,
                 decision=args.decision,
+                operator_note=args.operator_note,
                 runtime_paths=runtime_paths,
             )
         )
@@ -385,6 +441,7 @@ def main() -> int:
             build_broker_response_ssh_command(
                 args.request_id,
                 args.decision,
+                operator_note=args.operator_note,
                 runtime_dir=runtime_dir,
                 python_path=args.python_path,
             )

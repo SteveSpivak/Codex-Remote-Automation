@@ -51,7 +51,9 @@ codex app-server --help
 codex exec --help
 python3 -m cra.cli broker-service --prompt "Run git status and wait for approval" --timeout 30
 python3 -m cra.cli broker-pending
+python3 -m cra.cli broker-shortcut-payload
 python3 -m cra.cli broker-respond --request-id <request_id> --decision decline
+python3 -m cra.cli build-broker-response-ssh-command --request-id <request_id> --decision decline --operator-note "Optional audit note"
 python3 -m cra.cli imessage-poll --handle <your-imessage-handle>
 python3 -m cra.cli imessage-parse --text "decline <request_id>"
 python3 -m cra.cli broker-replay --input tests/fixtures/broker_command_flow.jsonl --auto-decision decline

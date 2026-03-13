@@ -89,6 +89,13 @@ def normalize_broker_decision(value: str) -> BrokerDecision:
         raise ValueError("decision must be one of: accept, acceptForSession, decline, cancel.") from exc
 
 
+def normalize_operator_note(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = sanitize_text(value, max_length=280)
+    return normalized or None
+
+
 def default_available_decisions(kind: ApprovalKind) -> list[BrokerDecision]:
     if kind in {ApprovalKind.COMMAND_EXECUTION, ApprovalKind.FILE_CHANGE}:
         return [
@@ -125,10 +132,18 @@ def normalize_available_decisions(
     return normalized or default_available_decisions(kind)
 
 
-def build_broker_response(request_id: str, decision: str) -> BrokerApprovalResponse:
+def build_broker_response(
+    request_id: str,
+    decision: str,
+    operator_note: str | None = None,
+) -> BrokerApprovalResponse:
     normalized_request_id = normalize_request_id(request_id)
     normalized_decision = normalize_broker_decision(decision)
-    return BrokerApprovalResponse(request_id=normalized_request_id, decision=normalized_decision)
+    return BrokerApprovalResponse(
+        request_id=normalized_request_id,
+        decision=normalized_decision,
+        operator_note=normalize_operator_note(operator_note),
+    )
 
 
 def unique_stable(values: Iterable[str]) -> list[str]:

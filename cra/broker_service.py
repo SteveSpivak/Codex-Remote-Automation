@@ -160,9 +160,10 @@ def enqueue_broker_response(
     *,
     request_id: str,
     decision: str,
+    operator_note: str | None = None,
     runtime_paths: BrokerRuntimePaths,
 ) -> dict[str, Any]:
-    response = build_broker_response(request_id, decision)
+    response = build_broker_response(request_id, decision, operator_note=operator_note)
     state = read_runtime_state(runtime_paths.state_path)
     status = state.get("status")
     if status not in {"starting", "running", "approval_pending"}:
@@ -180,6 +181,7 @@ def enqueue_broker_response(
         {
             "request_id": response.request_id,
             "decision": response.decision.value,
+            "operator_note": response.operator_note,
             "queued_at": _utc_now(),
         },
     )
@@ -296,11 +298,16 @@ def run_broker_service(
                 for queued in queued_responses:
                     queued_request_id = queued.get("request_id")
                     queued_decision = queued.get("decision")
+                    queued_note = queued.get("operator_note")
                     if not isinstance(queued_request_id, str) or not isinstance(queued_decision, str):
                         continue
                     try:
                         pending = state.pending_request(queued_request_id)
-                        response = state.send_decision(queued_request_id, queued_decision)
+                        response = state.send_decision(
+                            queued_request_id,
+                            queued_decision,
+                            operator_note=queued_note if isinstance(queued_note, str) else None,
+                        )
                     except ValueError as exc:
                         resolution = {
                             "event": "resolution",

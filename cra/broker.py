@@ -248,12 +248,19 @@ class BrokerState:
 
         return []
 
-    def send_decision(self, request_id: str, decision: str, *, timestamp: str | None = None) -> BrokerApprovalResponse:
+    def send_decision(
+        self,
+        request_id: str,
+        decision: str,
+        *,
+        operator_note: str | None = None,
+        timestamp: str | None = None,
+    ) -> BrokerApprovalResponse:
         normalized_request_id = normalize_request_id(request_id)
         pending = self.pending.pop(normalized_request_id, None)
         if pending is None:
             raise ValueError(f"request_id {normalized_request_id} is not pending.")
-        response = build_broker_response(normalized_request_id, decision)
+        response = build_broker_response(normalized_request_id, decision, operator_note=operator_note)
         pending.responded_at = timestamp or _utc_now()
         self.responded_request_ids.add(normalized_request_id)
         return response
@@ -335,6 +342,7 @@ def record_decision_event(
         "event": "decision_sent",
         "request_id": response.request_id,
         "decision": response.decision.value,
+        "operator_note": response.operator_note,
         "kind": pending.request.kind.value,
         "thread_id": pending.request.thread_id,
         "turn_id": pending.request.turn_id,

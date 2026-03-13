@@ -10,6 +10,7 @@ from unittest.mock import patch
 from cra.cli import main
 from cra.imessage import compose_approval_message, find_response_messages, parse_response_message, poll_imessages
 from cra.models import ApprovalKind, BrokerApprovalRequest, BrokerDecision
+from cra.validation import build_broker_response
 
 
 class IMessageTests(unittest.TestCase):
@@ -46,6 +47,10 @@ class IMessageTests(unittest.TestCase):
             {"request_id": "req-2", "decision": "accept"},
         )
         self.assertIsNone(parse_response_message("sounds good, thanks"))
+
+    def test_broker_response_sanitizes_operator_note(self) -> None:
+        response = build_broker_response("req-12", "decline", 'Need "manual" review \\ now')
+        self.assertEqual(response.operator_note, "Need manual review now")
 
     def test_poll_imessages_reads_messages_db_and_prefers_inbound_messages(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

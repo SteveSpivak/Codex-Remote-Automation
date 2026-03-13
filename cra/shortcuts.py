@@ -7,6 +7,7 @@ from typing import Callable, Dict
 
 from .actuator import run_local_actuation
 from .audit import append_jsonl
+from .models import BrokerApprovalRequest
 from .validation import build_actuation_request
 
 
@@ -101,6 +102,7 @@ def build_broker_response_ssh_command(
     request_id: str,
     decision: str,
     *,
+    operator_note: str | None = None,
     runtime_dir: Path | None = None,
     python_path: str = "python3",
 ) -> str:
@@ -115,9 +117,49 @@ def build_broker_response_ssh_command(
         "--decision",
         decision,
     ]
+    if operator_note is not None:
+        command.extend(["--operator-note", operator_note])
     if runtime_dir is not None:
         command.extend(["--runtime-dir", str(runtime_dir)])
     return "cd " + shlex.quote(str(repo_root)) + " && " + shlex.join(command)
+
+
+def build_shortcut_approval_payload(
+    approval: BrokerApprovalRequest,
+    *,
+    operator_note_enabled: bool = True,
+) -> Dict[str, object]:
+    return {
+        "title": "CRA approval required",
+        "subtitle": approval.kind.value.replace("_", " "),
+        "request_id": approval.request_id,
+        "thread_id": approval.thread_id,
+        "turn_id": approval.turn_id,
+        "item_id": approval.item_id,
+        "kind": approval.kind.value,
+        "summary": approval.summary,
+        "timestamp": approval.timestamp,
+        "decision_options": [
+            {
+                "value": decision.value,
+                "label": {
+                    "accept": "Accept",
+                    "acceptForSession": "Accept for Session",
+                    "decline": "Decline",
+                    "cancel": "Cancel",
+                }.get(decision.value, decision.value),
+            }
+            for decision in approval.available_decisions
+        ],
+        "default_decision": "decline" if any(decision.value == "decline" for decision in approval.available_decisions) else approval.available_decisions[0].value,
+        "operator_note_enabled": operator_note_enabled,
+        "operator_note_prompt": "Optional note for CRA audit",
+        "response_template": {
+            "request_id": approval.request_id,
+            "decision": "<selected_decision>",
+            "operator_note": "<optional_note>",
+        },
+    }
 
 
 def handle_shortcut_entry(

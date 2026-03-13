@@ -33,15 +33,22 @@ The Shortcut should return only:
 ## Suggested iPhone Shortcut Shape
 
 1. Optional `Set VPN` or Tailscale-connect step
-2. Show the approval summary and available decisions
-3. Return the chosen decision to the local CRA broker over a private channel such as Tailscale + SSH
+2. Fetch the current pending approval payload:
+
+```bash
+python3 -m cra.cli broker-shortcut-payload
+```
+
+3. Show the approval summary and available decisions
+4. Optionally collect a free-text note for CRA audit only
+5. Return the chosen decision to the local CRA broker over a private channel such as Tailscale + SSH
 4. Recommended SSH target:
 
 ```bash
-python3 -m cra.cli broker-respond --request-id <request_id> --decision <decision>
+python3 -m cra.cli broker-respond --request-id <request_id> --decision <decision> --operator-note "<optional_note>"
 ```
 
-5. Surface explicit errors for stale requests, duplicate taps, or transport failures
+6. Surface explicit errors for stale requests, duplicate taps, or transport failures
 
 The Shortcut should not decide how Codex is actuated locally. It should only return the decision to the broker.
 

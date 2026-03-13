@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cra.models import ApprovalKind, BrokerApprovalRequest, BrokerDecision
 from cra.shortcuts import (
+    build_shortcut_approval_payload,
     build_broker_response_ssh_command,
     build_shortcuts_command,
     build_ssh_command,
@@ -71,12 +73,39 @@ class ShortcutsTests(unittest.TestCase):
         command = build_broker_response_ssh_command(
             "req-123",
             "decline",
+            operator_note="Need a human review first",
             runtime_dir=Path("var/run"),
         )
         self.assertIn("python3 -m cra.cli broker-respond", command)
         self.assertIn("--request-id req-123", command)
         self.assertIn("--decision decline", command)
+        self.assertIn("--operator-note", command)
         self.assertIn("--runtime-dir var/run", command)
+
+    def test_build_shortcut_approval_payload_exposes_choices_and_note_support(self) -> None:
+        approval = BrokerApprovalRequest(
+            request_id="req-44",
+            thread_id="thread-1",
+            turn_id="turn-1",
+            item_id="cmd-44",
+            kind=ApprovalKind.COMMAND_EXECUTION,
+            summary="Run git push origin main",
+            available_decisions=[
+                BrokerDecision.ACCEPT,
+                BrokerDecision.ACCEPT_FOR_SESSION,
+                BrokerDecision.DECLINE,
+                BrokerDecision.CANCEL,
+            ],
+            timestamp="2026-03-13T12:00:00+00:00",
+            wire_request_id=44,
+        )
+
+        payload = build_shortcut_approval_payload(approval)
+
+        self.assertEqual(payload["request_id"], "req-44")
+        self.assertEqual(payload["default_decision"], "decline")
+        self.assertTrue(payload["operator_note_enabled"])
+        self.assertEqual(len(payload["decision_options"]), 4)
 
 
 if __name__ == "__main__":
