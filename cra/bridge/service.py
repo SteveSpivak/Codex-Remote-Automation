@@ -16,7 +16,7 @@ from ..broker import (
 )
 from ..broker_service import write_json_atomic
 from .device_state import BridgePaths, load_or_create_bridge_device_state, save_bridge_device_state
-from .qr import write_pairing_qr_stub
+from .qr import write_pairing_qr_image, write_pairing_qr_stub
 from .runtime import BridgeRuntime
 from .secure_transport import BridgeSecureTransport
 from .ws_client import WebSocketClient
@@ -55,6 +55,7 @@ def build_bridge_state_payload(
         "secure_ready": secure_ready,
         "pairing_payload_path": str(bridge_paths.pairing_payload_path),
         "pairing_qr_path": str(bridge_paths.pairing_qr_path),
+        "pairing_qr_stub_path": str(bridge_paths.pairing_qr_stub_path),
         "thread_id": thread_id,
         "turn_id": turn_id,
         "pending_approvals": runtime.snapshot_payload()["pendingApprovals"],
@@ -89,7 +90,8 @@ def run_bridge_service(
         json.dumps(pairing_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    write_pairing_qr_stub(bridge_paths.pairing_qr_path, pairing_payload)
+    write_pairing_qr_image(bridge_paths.pairing_qr_path, pairing_payload)
+    write_pairing_qr_stub(bridge_paths.pairing_qr_stub_path, pairing_payload)
 
     runtime = BridgeRuntime()
     broker_audit_paths = default_broker_audit_paths(bridge_paths.bridge_audit_path.parent)

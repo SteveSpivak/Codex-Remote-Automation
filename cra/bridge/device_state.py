@@ -25,6 +25,7 @@ class BridgePaths:
     runtime_state_path: Path
     pairing_payload_path: Path
     pairing_qr_path: Path
+    pairing_qr_stub_path: Path
     wire_audit_path: Path
     bridge_audit_path: Path
 
@@ -37,7 +38,8 @@ def default_bridge_paths(base_dir: Path | None = None, audit_dir: Path | None = 
         device_state_path=bridge_root / "device-state.json",
         runtime_state_path=bridge_root / "bridge-state.json",
         pairing_payload_path=bridge_root / "pairing-payload.json",
-        pairing_qr_path=bridge_root / "pairing-qr.txt",
+        pairing_qr_path=bridge_root / "pairing-qr.png",
+        pairing_qr_stub_path=bridge_root / "pairing-qr.txt",
         wire_audit_path=audit_root / "bridge-wire.jsonl",
         bridge_audit_path=audit_root / "bridge-events.jsonl",
     )

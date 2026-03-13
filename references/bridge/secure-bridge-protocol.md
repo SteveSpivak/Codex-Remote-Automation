@@ -45,7 +45,8 @@ The bridge writes local runtime artifacts under `var/bridge/` by default:
 
 - `device-state.json`: stable bridge device identity and trusted phones
 - `pairing-payload.json`: current pairing payload for the active session
-- `pairing-qr.txt`: QR stub or pairing URI helper
+- `pairing-qr.png`: scannable QR image for the iPhone app
+- `pairing-qr.txt`: human-readable pairing URI and JSON payload
 - `bridge-state.json`: current runtime status and pending approvals
 
 Audit streams are written under `var/audit/` by default:

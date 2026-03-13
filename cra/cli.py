@@ -12,7 +12,7 @@ from .actuator import run_local_actuation
 from .app_server import AppServerClient
 from .audit import append_jsonl
 from .bridge import default_bridge_paths, load_or_create_bridge_device_state, run_bridge_service
-from .bridge.qr import pairing_uri, write_pairing_qr_stub
+from .bridge.qr import pairing_uri, write_pairing_qr_image, write_pairing_qr_stub
 from .bridge.secure_transport import BridgeSecureTransport
 from .broker import (
     BrokerState,
@@ -421,7 +421,8 @@ def main() -> int:
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        write_pairing_qr_stub(bridge_paths.pairing_qr_path, payload)
+        write_pairing_qr_image(bridge_paths.pairing_qr_path, payload)
+        write_pairing_qr_stub(bridge_paths.pairing_qr_stub_path, payload)
         _json_print(
             {
                 "status": "ok",
@@ -429,6 +430,7 @@ def main() -> int:
                 "pairing_uri": pairing_uri(payload),
                 "payload_path": str(bridge_paths.pairing_payload_path),
                 "qr_path": str(bridge_paths.pairing_qr_path),
+                "qr_stub_path": str(bridge_paths.pairing_qr_stub_path),
             }
         )
         return 0
