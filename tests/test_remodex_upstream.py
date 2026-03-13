@@ -9,7 +9,9 @@ from cra.remodex_upstream import (
     InstalledRemodexPaths,
     build_patched_runtime,
     codex_login_status,
+    extract_quick_tunnel_url,
     launch_agent_payload,
+    normalize_public_relay_base_url,
 )
 
 
@@ -160,6 +162,27 @@ class RemodexUpstreamTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "ok")
         self.assertTrue(payload["authenticated"])
+
+    def test_normalize_public_relay_base_url_adds_relay_path_and_wss_scheme(self) -> None:
+        self.assertEqual(
+            normalize_public_relay_base_url("https://demo.trycloudflare.com"),
+            "wss://demo.trycloudflare.com/relay",
+        )
+        self.assertEqual(
+            normalize_public_relay_base_url("wss://relay.example.com/relay/"),
+            "wss://relay.example.com/relay",
+        )
+
+    def test_extract_quick_tunnel_url_finds_trycloudflare_url(self) -> None:
+        line = "INF |  https://fancy-sky-1234.trycloudflare.com                                  |"
+        self.assertEqual(
+            extract_quick_tunnel_url(line),
+            "https://fancy-sky-1234.trycloudflare.com",
+        )
+
+    def test_extract_quick_tunnel_url_ignores_terms_url(self) -> None:
+        line = "INF Terms of Use (https://www.cloudflare.com/website-terms/), and more text"
+        self.assertIsNone(extract_quick_tunnel_url(line))
 
 
 if __name__ == "__main__":

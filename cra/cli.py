@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -44,6 +45,7 @@ from .remodex_upstream import (
     install_launch_agent,
     launch_agent_status,
     resolve_installed_remodex,
+    run_selfhosted_remodex,
     run_upstream_remodex,
     uninstall_launch_agent,
 )
@@ -285,6 +287,24 @@ def main() -> int:
     remodex_run_parser.add_argument("--codex-path")
     remodex_run_parser.add_argument("--remodex-bin")
     remodex_run_parser.add_argument("--extra-ca-cn", action="append", default=[])
+
+    remodex_selfhosted_parser = subparsers.add_parser(
+        "remodex-selfhosted-run",
+        help="Run the official upstream Remodex against a self-hosted public relay path.",
+    )
+    remodex_selfhosted_parser.add_argument("--runtime-dir", default="var/generated/remodex-selfhosted")
+    remodex_selfhosted_parser.add_argument("--remodex-command", choices=["up", "resume", "watch"], default="up")
+    remodex_selfhosted_parser.add_argument("--thread-id")
+    remodex_selfhosted_parser.add_argument("--public-relay-base-url")
+    remodex_selfhosted_parser.add_argument("--relay-host", default="127.0.0.1")
+    remodex_selfhosted_parser.add_argument("--relay-port", type=int, default=8787)
+    remodex_selfhosted_parser.add_argument("--cloudflared-path")
+    remodex_selfhosted_parser.add_argument("--home")
+    remodex_selfhosted_parser.add_argument("--python-path")
+    remodex_selfhosted_parser.add_argument("--node-path")
+    remodex_selfhosted_parser.add_argument("--codex-path")
+    remodex_selfhosted_parser.add_argument("--remodex-bin")
+    remodex_selfhosted_parser.add_argument("--extra-ca-cn", action="append", default=[])
 
     remodex_install_parser = subparsers.add_parser(
         "remodex-install-launch-agent",
@@ -646,6 +666,30 @@ def main() -> int:
             thread_id=args.thread_id,
             extra_ca_common_names=args.extra_ca_cn,
         )
+
+    if args.command == "remodex-selfhosted-run":
+        installed = resolve_installed_remodex(
+            home=args.home,
+            python_path=args.python_path,
+            node_path=args.node_path,
+            codex_path=args.codex_path,
+            remodex_bin=args.remodex_bin,
+        )
+        try:
+            return run_selfhosted_remodex(
+                installed,
+                base_dir=Path(args.runtime_dir),
+                command=args.remodex_command,
+                thread_id=args.thread_id,
+                public_relay_base_url=args.public_relay_base_url,
+                relay_host=args.relay_host,
+                relay_port=args.relay_port,
+                cloudflared_path=args.cloudflared_path,
+                extra_ca_common_names=args.extra_ca_cn,
+            )
+        except RuntimeError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
 
     if args.command == "remodex-install-launch-agent":
         installed = resolve_installed_remodex(

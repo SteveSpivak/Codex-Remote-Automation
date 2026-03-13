@@ -41,6 +41,7 @@ Treat hosted upstream as blocked on this managed network until a non-intercepted
 - Test hosted upstream on a non-intercepted network such as a hotspot or home Wi-Fi
 - If hosted works there, keep hosted upstream as the default and document this network as unsupported
 - If hosted still fails, re-evaluate the self-hosted relay path with the official upstream bridge before changing the mobile client again
+- For this repo, the immediate next proof path is a public self-hosted `wss://` relay exposed from the Mac via tunnel, not more hosted-relay tweaks on the managed network
 
 ## Related Skills
 

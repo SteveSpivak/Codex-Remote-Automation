@@ -66,6 +66,25 @@ The repo-managed wrapper is the preferred daily-driver path because it:
 - does not blank the hosted push URL
 - patches only the device-state persistence layer to avoid repeated Keychain prompts on reconnect
 
+## Self-Hosted Remodex Quick Start
+
+Use this path when the hosted Phodex relay is blocked on the current machine or network, but you still want to keep the official `remodex` package and official iPhone app.
+
+```bash
+cd relay
+npm install
+brew install cloudflared
+cd /Users/steve.spivak/Documents/MAcosAutomation
+bash scripts/remodex_selfhosted.sh
+```
+
+This first-phase self-hosted path is intentionally narrow:
+
+- public `wss://` relay exposed from this Mac through Cloudflare Quick Tunnel
+- foreground-connected app session only
+- no self-hosted push endpoints
+- one stable command proof and one approval round-trip proof
+
 LaunchAgent helper commands:
 
 ```bash
@@ -106,6 +125,7 @@ Current findings from the upstream README, installed npm package, and local runt
 
 See [upstream research notes](references/research/remodex-upstream-assessment.md) for the current evidence set.
 See [hosted wrapper runbook](references/research/remodex-hosted-runbook.md) for the operational path.
+See [self-hosted wrapper runbook](references/research/remodex-selfhosted-runbook.md) for the public `wss://` proof path.
 
 ## Transitional Fallback Paths
 
@@ -143,6 +163,7 @@ python3 -m cra.cli shortcut-entry --decision approve --action-id 11111111-1111-4
 - [Secure bridge protocol notes](references/bridge/secure-bridge-protocol.md)
 - [Upstream Remodex research](references/research/remodex-upstream-assessment.md)
 - [Hosted wrapper runbook](references/research/remodex-hosted-runbook.md)
+- [Self-hosted wrapper runbook](references/research/remodex-selfhosted-runbook.md)
 - [Remodex compatibility-study notes](remodex/README.md)
 - [Shortcuts runbook (fallback)](references/shortcuts-runbook.md)
 - [Shortcut build pack](references/shortcuts/cra-operator-shortcut.md)

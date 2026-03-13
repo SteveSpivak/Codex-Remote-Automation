@@ -62,6 +62,14 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
   - if that works, keep hosted upstream as the default daily-driver path
   - if that still fails, or if this managed network is the permanent environment, prefer the local or self-hosted relay path for this machine
 
+### Self-hosted Quick Tunnel constraint
+
+- The repo now has a self-hosted public `wss://` proof path using a local relay plus Cloudflare Quick Tunnel.
+- On this Mac, Quick Tunnel creation succeeds and the tunnel registers with Cloudflare.
+- However, generated `*.trycloudflare.com` hostnames may still fail local DNS resolution on this machine after tunnel registration.
+- The wrapper now waits for the tunnel hostname to resolve and fails fast if it does not, instead of launching Remodex into a blind reconnect loop.
+- That is a local DNS or network-path blocker, not proof that the relay server or official app protocol is wrong.
+
 ## Open Questions
 
 - Does the iPhone app accept plain `ws://` on LAN, or does it effectively require `wss://`?
@@ -77,8 +85,21 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 - The in-repo `remodex/` folder should be treated as a compatibility study only.
 - The local relay remains a research surface; hosted upstream is the daily-driver baseline for this repo.
 - For managed networks that intercept TLS, hosted upstream may be impractical even when the wrapper and patch are correct.
+- For managed-network environments like this Mac, the next fork-gate proof path should be: official Remodex bridge plus official iPhone app over a self-hosted public `wss://` relay, not more hosted-relay tweaking.
+- The first self-hosted proof target should stay narrow: one stable foreground-connected session and one approval round-trip.
 - The smallest justified fork point is upstream `secure-device-state.js`, not the full bridge or relay.
 - Forking bridge or relay behavior should happen only after a known-good upstream phone pairing exists and a hard blocker is documented.
+
+## Next Proof Path
+
+The next evidence step for this repo is:
+
+1. replace the local relay with a standards-compliant `ws`-based relay
+2. expose it publicly with a real `wss://` URL
+3. point official `remodex up` at that public self-hosted relay
+4. confirm whether the official iPhone app accepts that path
+
+If the phone still rejects the public self-hosted `wss://` path after that, treat it as an official-app self-hosting blocker rather than a CRA wrapper bug.
 
 ## Decision Gate
 
