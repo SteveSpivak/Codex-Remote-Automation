@@ -40,6 +40,8 @@ For CRA work, prefer this loop:
 - Shared project config lives in `.codex/config.toml`
 - Shared repo commands live in `.codex/commands/`
 - Recurring health or replay work should prefer Codex automations and Triage before a custom scheduler is added
+- Repo-local CRA skills can be linked into `$CODEX_HOME/skills` with `bash scripts/sync_repo_skills_to_codex.sh`
+- Durable lessons live under `references/lessons/` and should be captured when a finding changes architecture, skills, or workflow
 
 ## Fallback Rules
 

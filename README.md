@@ -136,3 +136,21 @@ python3 -m cra.cli shortcut-entry --decision approve --action-id 11111111-1111-4
 - [CRA security specialist](skills/cra-security-specialist/SKILL.md)
 - [CRA test engineer](skills/cra-test-engineer/SKILL.md)
 - [CRA upstream integration](skills/cra-upstream-integration/SKILL.md)
+
+To link these repo-local skills into Codex's global skill directory, run:
+
+```bash
+bash scripts/sync_repo_skills_to_codex.sh
+```
+
+Then restart Codex.
+
+## Learned Lessons
+
+Durable lessons now live under [references/lessons](/Users/steve.spivak/Documents/MAcosAutomation/references/lessons).
+
+Create a new lesson file with:
+
+```bash
+bash scripts/new_lesson.sh <area> <slug>
+```
