@@ -1,0 +1,77 @@
+{
+  "clusters": [
+    {
+      "cluster_id": "research-quality",
+      "theme": "Research quality and multi-source reasoning",
+      "patterns": [
+        "Repo mapping before change",
+        "Cross-source synthesis",
+        "Critique of weak or contradictory evidence"
+      ],
+      "sources": [
+        "organizer-blueprint",
+        "agent-skills-format",
+        "agency-agents-readme",
+        "current-repo-meta-skills"
+      ],
+      "candidate_skills": [
+        "repo-researcher",
+        "research-synthesizer",
+        "research-critique"
+      ]
+    },
+    {
+      "cluster_id": "workflow-execution",
+      "theme": "Structured execution from plan through debugging",
+      "patterns": [
+        "Decision-complete planning",
+        "Iterative debugging with proof",
+        "Clear next actions and test boundaries"
+      ],
+      "sources": [
+        "organizer-blueprint",
+        "agency-agents-readme",
+        "current-repo-meta-skills"
+      ],
+      "candidate_skills": [
+        "implementation-planner",
+        "persistent-debugger"
+      ]
+    },
+    {
+      "cluster_id": "reasoning-architecture",
+      "theme": "Improve structure, reasoning discipline, and decision framing",
+      "patterns": [
+        "Information architecture and decomposition",
+        "Blind-spot detection",
+        "Tradeoff framing without excessive coaching tone"
+      ],
+      "sources": [
+        "organizer-blueprint",
+        "agency-agents-readme",
+        "current-repo-meta-skills"
+      ],
+      "candidate_skills": [
+        "structure-designer",
+        "thinking-coach"
+      ]
+    },
+    {
+      "cluster_id": "skill-governance",
+      "theme": "Improve and maintain the skill system itself",
+      "patterns": [
+        "Tight triggers",
+        "Packaging validation",
+        "Overlap and sprawl control"
+      ],
+      "sources": [
+        "organizer-blueprint",
+        "system-skill-creator",
+        "current-repo-meta-skills"
+      ],
+      "candidate_skills": [
+        "skill-refiner"
+      ]
+    }
+  ]
+}

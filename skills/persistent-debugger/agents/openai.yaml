@@ -1,0 +1,4 @@
+interface:
+  display_name: "Persistent Debugger"
+  short_description: "Drive iterative debugging with proof loops"
+  default_prompt: "Use $persistent-debugger to debug this issue step by step with hypotheses and proofs."

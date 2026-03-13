@@ -1,0 +1,21 @@
+{
+  "name": "research-synthesizer",
+  "family": "research",
+  "goal": "Combine multiple sources into a concise, decision-grade memo.",
+  "trigger": "Use when comparing repos, docs, or articles and the user needs a clear synthesis rather than raw notes.",
+  "deliverables": [
+    "Distilled findings",
+    "Reusable patterns",
+    "Exclusions",
+    "Confidence notes",
+    "Recommended path"
+  ],
+  "non_goals": [
+    "Do not preserve long-term lessons",
+    "Do not critique weak evidence unless contradictions need explicit callout"
+  ],
+  "sources": [
+    "organizer-blueprint",
+    "agency-agents-readme"
+  ]
+}

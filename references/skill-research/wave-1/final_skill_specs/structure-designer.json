@@ -1,0 +1,20 @@
+{
+  "name": "structure-designer",
+  "family": "reasoning",
+  "goal": "Improve the structure and information flow of plans, prompts, docs, and architecture notes.",
+  "trigger": "Use when the content is technically right but poorly organized, hard to scan, or missing a clean decomposition.",
+  "deliverables": [
+    "Reworked structure",
+    "Better hierarchy",
+    "Naming improvements",
+    "Information flow notes"
+  ],
+  "non_goals": [
+    "Do not drift into visual UI design",
+    "Do not turn into generic writing advice"
+  ],
+  "sources": [
+    "organizer-blueprint",
+    "agency-agents-readme"
+  ]
+}

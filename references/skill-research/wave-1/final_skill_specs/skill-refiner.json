@@ -1,0 +1,21 @@
+{
+  "name": "skill-refiner",
+  "family": "agent_systems",
+  "goal": "Tighten existing skills by improving triggers, deliverables, non-overlap, and packaging.",
+  "trigger": "Use when an existing skill feels bloated, stale, weakly triggered, or poorly packaged for Codex.",
+  "deliverables": [
+    "Revised skill spec",
+    "Overlap notes",
+    "Packaging corrections",
+    "Validation checklist"
+  ],
+  "non_goals": [
+    "Do not replace skill-creator for greenfield skills",
+    "Do not add unnecessary bundled resources"
+  ],
+  "sources": [
+    "system-skill-creator",
+    "organizer-blueprint",
+    "current-repo-meta-skills"
+  ]
+}

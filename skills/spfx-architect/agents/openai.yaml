@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPFx Architect"
+  short_description: "Design SPFx architecture and tradeoffs"
+  default_prompt: "Use $spfx-architect to design the architecture for this SPFx or Microsoft 365 extensibility task."

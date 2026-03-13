@@ -1,0 +1,109 @@
+[
+  {
+    "source_id": "organizer-blueprint",
+    "type": "local_json_blueprint",
+    "url_or_path": "/Users/steve.spivak/Downloads/skill_source_organizer.json",
+    "thesis": "Skill generation should follow a staged pipeline: distill sources, cluster patterns, derive candidate skills, label research gaps, then package final skills.",
+    "reusable_patterns": [
+      "Evidence-first skill creation pipeline",
+      "Explicit maturity, licensing, portability, and enterprise-fit checks",
+      "Skill family clustering before packaging"
+    ],
+    "exclusions": [
+      "Not a final skill source",
+      "Does not provide packaging details for Codex UI metadata"
+    ],
+    "maturity": "user-authored planning artifact",
+    "portability": "high",
+    "licensing_risk": "none",
+    "security_risk": "none",
+    "enterprise_fit": "high",
+    "likely_contribution": "Defines the research pipeline and the first-wave selection discipline."
+  },
+  {
+    "source_id": "agent-skills-format",
+    "type": "primary_web_doc",
+    "url_or_path": "https://agentskills.io/what-are-skills",
+    "thesis": "Skills are lightweight folders centered on SKILL.md with optional scripts, references, and assets, using progressive disclosure for efficient context loading.",
+    "reusable_patterns": [
+      "Folder-first packaging",
+      "Progressive disclosure",
+      "Portable and auditable plain-file skill format"
+    ],
+    "exclusions": [
+      "Does not prescribe deliverable structure",
+      "Does not define Codex-specific agents/openai.yaml metadata"
+    ],
+    "maturity": "published format overview",
+    "portability": "high",
+    "licensing_risk": "low",
+    "security_risk": "low",
+    "enterprise_fit": "high",
+    "likely_contribution": "Supports concise folder design and argues against bloated skill payloads."
+  },
+  {
+    "source_id": "agency-agents-readme",
+    "type": "primary_repo_readme",
+    "url_or_path": "https://github.com/msitarzewski/agency-agents",
+    "thesis": "Specialized agents become more useful when they have explicit mission, workflow, deliverables, and success metrics, but personality-heavy packaging can create noise.",
+    "reusable_patterns": [
+      "Deliverable-focused specialization",
+      "Clear workflow steps",
+      "Success metrics and role boundaries",
+      "Division of labor across multiple agents"
+    ],
+    "exclusions": [
+      "Avoid persona theatre and brand-heavy voice",
+      "Avoid giant catalogs with overlapping triggers"
+    ],
+    "maturity": "open-source curated agent catalog",
+    "portability": "medium",
+    "licensing_risk": "low",
+    "security_risk": "low",
+    "enterprise_fit": "medium",
+    "likely_contribution": "Informs how to make each skill concrete without turning it into a personality package."
+  },
+  {
+    "source_id": "system-skill-creator",
+    "type": "local_system_skill",
+    "url_or_path": "/Users/steve.spivak/.codex/skills/.system/skill-creator/SKILL.md",
+    "thesis": "Good skills are concise, rely on progressive disclosure, and should use generated agents/openai.yaml metadata plus validation tooling.",
+    "reusable_patterns": [
+      "Concise trigger descriptions",
+      "Use init and validation tooling",
+      "Prefer reusable scripts and references only when necessary",
+      "Keep SKILL.md under control and avoid redundant files"
+    ],
+    "exclusions": [
+      "Do not create README-style clutter",
+      "Do not push trigger guidance only into the body"
+    ],
+    "maturity": "system skill guidance",
+    "portability": "high within Codex",
+    "licensing_risk": "none",
+    "security_risk": "low",
+    "enterprise_fit": "high",
+    "likely_contribution": "Defines the local packaging conventions and validation path for wave 1."
+  },
+  {
+    "source_id": "current-repo-meta-skills",
+    "type": "local_repo_patterns",
+    "url_or_path": "/Users/steve.spivak/Documents/MAcosAutomation/skills",
+    "thesis": "The existing repo favors small, evidence-first, reusable skills with fixed deliverables and minimal fluff.",
+    "reusable_patterns": [
+      "Purpose, process, hard rules, deliverables, output format",
+      "Short, audit-friendly skill bodies",
+      "Clear separation between evidence gathering, critique, and lesson capture"
+    ],
+    "exclusions": [
+      "Do not duplicate reality-checker, evidence-collector, or lesson-curator",
+      "Do not let generic productivity skills conflict with CRA routing"
+    ],
+    "maturity": "active local skill set",
+    "portability": "high",
+    "licensing_risk": "none",
+    "security_risk": "low",
+    "enterprise_fit": "high",
+    "likely_contribution": "Provides the local tone and non-overlap baseline for new skills."
+  }
+]

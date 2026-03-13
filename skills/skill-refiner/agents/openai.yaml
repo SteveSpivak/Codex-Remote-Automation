@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Refiner"
+  short_description: "Tighten existing skills and packaging"
+  default_prompt: "Use $skill-refiner to improve this skill without turning it into a rewrite."

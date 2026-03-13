@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Critique"
+  short_description: "Pressure-test weak or conflicting research"
+  default_prompt: "Use $research-critique to challenge this research set and expose weak evidence."

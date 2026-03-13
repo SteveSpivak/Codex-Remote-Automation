@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPFx Reviewer"
+  short_description: "Review SPFx risks, quality, and release fit"
+  default_prompt: "Use $spfx-reviewer to review this SPFx change for risk, quality, and release concerns."

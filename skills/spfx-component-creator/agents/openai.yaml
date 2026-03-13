@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPFx Component Creator"
+  short_description: "Implement SPFx code, manifests, and packages"
+  default_prompt: "Use $spfx-component-creator to implement this SPFx change with repo-aware code and commands."

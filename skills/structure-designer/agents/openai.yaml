@@ -1,0 +1,4 @@
+interface:
+  display_name: "Structure Designer"
+  short_description: "Reshape docs, plans, and prompts clearly"
+  default_prompt: "Use $structure-designer to improve the structure and flow of this material."

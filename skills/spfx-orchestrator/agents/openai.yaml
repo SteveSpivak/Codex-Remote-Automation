@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPFx Orchestrator"
+  short_description: "Route SPFx work to the right specialist"
+  default_prompt: "Use $spfx-orchestrator to route this SPFx request and assemble the right specialist output."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Synthesizer"
+  short_description: "Turn multiple sources into a decision memo"
+  default_prompt: "Use $research-synthesizer to combine these sources into a concise decision memo."

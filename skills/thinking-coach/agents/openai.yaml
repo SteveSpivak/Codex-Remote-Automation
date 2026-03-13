@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thinking Coach"
+  short_description: "Sharpen reasoning and tradeoff framing"
+  default_prompt: "Use $thinking-coach to stress-test the reasoning and improve the decision framing."

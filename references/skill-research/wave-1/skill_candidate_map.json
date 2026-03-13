@@ -1,0 +1,158 @@
+{
+  "wave": "wave-1",
+  "selection_rules": {
+    "prioritize": [
+      "Broad reuse across repos",
+      "Evidence-first structure",
+      "Low overlap with current CRA and meta-skills",
+      "Small, portable skill bodies"
+    ],
+    "defer": [
+      "Framework-specific reviewer skills",
+      "Remote-access selector skills",
+      "UI design or persuasion-heavy skills"
+    ]
+  },
+  "candidates": [
+    {
+      "name": "repo-researcher",
+      "cluster": "research-quality",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "agent-skills-format",
+        "current-repo-meta-skills"
+      ],
+      "primary_trigger": "Need to understand an unfamiliar repository or toolchain before implementing or reviewing.",
+      "outputs": [
+        "Repo map",
+        "Entrypoints",
+        "Unknowns",
+        "Next-read list"
+      ],
+      "overlap_risk": "low",
+      "notes": "Complements evidence-collector by focusing on repo structure rather than incident evidence."
+    },
+    {
+      "name": "research-synthesizer",
+      "cluster": "research-quality",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "agency-agents-readme"
+      ],
+      "primary_trigger": "Need to combine multiple docs, repos, or sources into a decision memo.",
+      "outputs": [
+        "Findings",
+        "Reusable patterns",
+        "Exclusions",
+        "Confidence notes"
+      ],
+      "overlap_risk": "low",
+      "notes": "Distinct from lesson-curator because it synthesizes live research rather than preserving durable lessons."
+    },
+    {
+      "name": "research-critique",
+      "cluster": "research-quality",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "agency-agents-readme",
+        "current-repo-meta-skills"
+      ],
+      "primary_trigger": "Need to challenge hype, contradictions, or weak evidence in a research set.",
+      "outputs": [
+        "Risks",
+        "Missing proof",
+        "Contradictions",
+        "Stronger alternatives"
+      ],
+      "overlap_risk": "medium",
+      "notes": "Must not duplicate reality-checker; it focuses on source corpus quality instead of runtime diagnosis."
+    },
+    {
+      "name": "implementation-planner",
+      "cluster": "workflow-execution",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "agency-agents-readme",
+        "current-repo-meta-skills"
+      ],
+      "primary_trigger": "Need to convert intent into a concrete implementation plan with interfaces, defaults, and tests.",
+      "outputs": [
+        "Plan",
+        "Interfaces",
+        "Constraints",
+        "Test plan"
+      ],
+      "overlap_risk": "low",
+      "notes": "Pairs well with repo-researcher but stays focused on action, not discovery."
+    },
+    {
+      "name": "persistent-debugger",
+      "cluster": "workflow-execution",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "current-repo-meta-skills"
+      ],
+      "primary_trigger": "Need to iterate through a bug using hypotheses, evidence, and proof loops.",
+      "outputs": [
+        "Hypothesis log",
+        "Narrowed root cause",
+        "Proof commands",
+        "Next checks"
+      ],
+      "overlap_risk": "medium",
+      "notes": "Must defer to evidence-collector for compact artifact gathering and to reality-checker for pivot decisions."
+    },
+    {
+      "name": "structure-designer",
+      "cluster": "reasoning-architecture",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "agency-agents-readme"
+      ],
+      "primary_trigger": "Need to improve the structure of a plan, doc, prompt, or architecture note.",
+      "outputs": [
+        "Reframed structure",
+        "Hierarchy",
+        "Naming improvements",
+        "Information flow notes"
+      ],
+      "overlap_risk": "low",
+      "notes": "Explicitly prioritizes structure design over visual UI design."
+    },
+    {
+      "name": "thinking-coach",
+      "cluster": "reasoning-architecture",
+      "strongest_sources": [
+        "organizer-blueprint",
+        "agency-agents-readme",
+        "current-repo-meta-skills"
+      ],
+      "primary_trigger": "Need sharper reasoning, blind-spot detection, or tradeoff framing.",
+      "outputs": [
+        "Sharper questions",
+        "Assumption checks",
+        "Decision framing",
+        "Reasoning hygiene steps"
+      ],
+      "overlap_risk": "medium",
+      "notes": "Must stay analytical, not therapeutic or motivational."
+    },
+    {
+      "name": "skill-refiner",
+      "cluster": "skill-governance",
+      "strongest_sources": [
+        "system-skill-creator",
+        "organizer-blueprint",
+        "current-repo-meta-skills"
+      ],
+      "primary_trigger": "Need to update existing skills for cleaner triggers, less fluff, better packaging, or tighter deliverables.",
+      "outputs": [
+        "Revised skill spec",
+        "Overlap notes",
+        "Packaging corrections"
+      ],
+      "overlap_risk": "low",
+      "notes": "Complements skill-creator by targeting refinement of existing skills rather than greenfield creation."
+    }
+  ]
+}

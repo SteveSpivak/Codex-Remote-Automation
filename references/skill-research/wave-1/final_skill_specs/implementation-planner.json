@@ -1,0 +1,22 @@
+{
+  "name": "implementation-planner",
+  "family": "workflow",
+  "goal": "Turn a request into a decision-complete implementation plan with defaults, interfaces, and tests.",
+  "trigger": "Use when the user needs a build plan, migration plan, or staged execution design before implementation.",
+  "deliverables": [
+    "Plan summary",
+    "Interfaces and contracts",
+    "Constraints and assumptions",
+    "Test plan",
+    "Decision gates"
+  ],
+  "non_goals": [
+    "Do not perform the implementation itself",
+    "Do not replace repo-researcher discovery work"
+  ],
+  "sources": [
+    "organizer-blueprint",
+    "agency-agents-readme",
+    "current-repo-meta-skills"
+  ]
+}

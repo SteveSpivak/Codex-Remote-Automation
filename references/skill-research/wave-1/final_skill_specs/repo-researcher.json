@@ -1,0 +1,22 @@
+{
+  "name": "repo-researcher",
+  "family": "research",
+  "goal": "Understand an unfamiliar repository quickly enough to act without guessing.",
+  "trigger": "Use when onboarding to a new codebase, locating entrypoints, or building a next-read list before edits or review.",
+  "deliverables": [
+    "Source map",
+    "Key entrypoints",
+    "Architecture notes",
+    "Uncertainties",
+    "Next-read list"
+  ],
+  "non_goals": [
+    "Do not turn into a full architecture decision memo",
+    "Do not gather incident evidence like evidence-collector"
+  ],
+  "sources": [
+    "organizer-blueprint",
+    "agent-skills-format",
+    "current-repo-meta-skills"
+  ]
+}

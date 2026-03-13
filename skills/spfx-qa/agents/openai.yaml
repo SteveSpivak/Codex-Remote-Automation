@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPFx QA"
+  short_description: "Plan SPFx validation and release checks"
+  default_prompt: "Use $spfx-qa to build the validation and release-readiness plan for this SPFx change."

@@ -1,0 +1,36 @@
+{
+  "gaps": [
+    {
+      "gap_id": "codex-picker-behavior",
+      "priority": "medium",
+      "question": "Do local repo skills with agents/openai.yaml appear more reliably in the Codex picker than SKILL.md-only skills after sync and restart?",
+      "why_it_matters": "Affects discoverability and whether metadata needs to be mandatory for future waves.",
+      "status": "partially addressed in wave 1",
+      "verification_task": "Sync the new skills, inspect ~/.codex/skills, and confirm they are callable globally."
+    },
+    {
+      "gap_id": "skill-body-length-threshold",
+      "priority": "low",
+      "question": "At what point do meta-skills become too verbose to justify their trigger cost?",
+      "why_it_matters": "Prevents the new general-purpose skills from becoming persona-heavy or noisy.",
+      "status": "open",
+      "verification_task": "Use the new skills on real tasks and prune sections that do not change outputs."
+    },
+    {
+      "gap_id": "later-wave-reviewers",
+      "priority": "medium",
+      "question": "Which framework-specific reviewer skills from the organizer deserve a second-wave implementation based on actual demand?",
+      "why_it_matters": "Avoids creating narrow skills without real usage pressure.",
+      "status": "deferred",
+      "verification_task": "Track repeated asks for React, SPFx, FastAPI, SQL, or dashboard review before packaging wave 2."
+    },
+    {
+      "gap_id": "cross-agent-portability",
+      "priority": "low",
+      "question": "Which wave 1 skills remain useful outside Codex with only SKILL.md and no agents/openai.yaml?",
+      "why_it_matters": "Improves reuse if the user later shares the bundle with other agent clients.",
+      "status": "open",
+      "verification_task": "Keep SKILL.md self-sufficient and avoid Codex-only assumptions in the body."
+    }
+  ]
+}

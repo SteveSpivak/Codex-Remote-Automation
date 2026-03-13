@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implementation Planner"
+  short_description: "Turn intent into staged implementation work"
+  default_prompt: "Use $implementation-planner to turn this request into a concrete implementation plan."

@@ -1,0 +1,22 @@
+{
+  "name": "research-critique",
+  "family": "research",
+  "goal": "Stress-test a research set for contradictions, hype, and missing proof.",
+  "trigger": "Use when a plan or recommendation is being built on uncertain or conflicting source material.",
+  "deliverables": [
+    "Claims under pressure",
+    "Contradictions",
+    "Missing proof",
+    "Risk labels",
+    "Stronger alternatives"
+  ],
+  "non_goals": [
+    "Do not re-run incident diagnosis; reality-checker already covers runtime pivots",
+    "Do not gather broad evidence dumps"
+  ],
+  "sources": [
+    "organizer-blueprint",
+    "agency-agents-readme",
+    "current-repo-meta-skills"
+  ]
+}

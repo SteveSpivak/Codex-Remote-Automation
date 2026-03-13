@@ -1,0 +1,21 @@
+{
+  "name": "persistent-debugger",
+  "family": "workflow",
+  "goal": "Drive an iterative debug loop until the root cause is narrowed or the remaining blocker is explicit.",
+  "trigger": "Use when a failure needs reproduction, hypothesis tracking, proof loops, and disciplined next checks.",
+  "deliverables": [
+    "Repro status",
+    "Hypothesis log",
+    "Facts established",
+    "Narrowed root cause or blocker",
+    "Next proof command"
+  ],
+  "non_goals": [
+    "Do not collect every possible artifact",
+    "Do not recommend architecture pivots without reality-checker level evidence"
+  ],
+  "sources": [
+    "organizer-blueprint",
+    "current-repo-meta-skills"
+  ]
+}
