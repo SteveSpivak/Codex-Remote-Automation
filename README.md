@@ -47,12 +47,32 @@ Use these commands to validate the official upstream path first:
 
 ```bash
 npm install -g remodex@latest
+python3 -m cra.cli remodex-upstream-build
+bash scripts/remodex_upstream.sh
+```
+
+For direct upstream commands, the installed package still exposes:
+
+```bash
 remodex up
 remodex resume
 remodex watch
 ```
 
-If you need to override the relay during local testing, use `REMODEX_RELAY=... remodex up`.
+The repo-managed wrapper is the preferred daily-driver path because it:
+
+- uses the real user `HOME`
+- keeps the hosted upstream relay defaults
+- does not blank the hosted push URL
+- patches only the device-state persistence layer to avoid repeated Keychain prompts on reconnect
+
+LaunchAgent helper commands:
+
+```bash
+bash scripts/install_remodex_launchagent.sh --bootstrap
+bash scripts/remodex_launchagent_status.sh
+bash scripts/uninstall_remodex_launchagent.sh
+```
 
 Use these repo-local commands to inspect the CRA environment around that upstream path:
 
@@ -81,9 +101,11 @@ Current findings from the upstream README, installed npm package, and local runt
 - The upstream README says the full phone-to-Mac flow still depends on `api.phodex.app` during the current testing phase.
 - The README says self-hosting is supported in principle and the relay code is available, but that does not make every local `ws://` setup a known-good production path.
 - The bridge persists state under `~/.remodex` and, on macOS, attempts Keychain-backed storage for bridge identity.
-- `REMODEX_PUSH_SERVICE_URL` can be overridden or emptied, but hosted relay and notification expectations still need proof in the target environment.
+- The local repo relay does not implement the upstream push endpoints, so `push notify failed: not_found` is expected there and is not the hosted baseline.
+- The repo-managed wrapper keeps hosted upstream behavior but replaces only the device-state persistence layer to avoid repeated Keychain prompts on trusted reconnect.
 
 See [upstream research notes](references/research/remodex-upstream-assessment.md) for the current evidence set.
+See [hosted wrapper runbook](references/research/remodex-hosted-runbook.md) for the operational path.
 
 ## Transitional Fallback Paths
 
@@ -120,6 +142,7 @@ python3 -m cra.cli shortcut-entry --decision approve --action-id 11111111-1111-4
 - [CRA output contracts](references/output-contracts.md)
 - [Secure bridge protocol notes](references/bridge/secure-bridge-protocol.md)
 - [Upstream Remodex research](references/research/remodex-upstream-assessment.md)
+- [Hosted wrapper runbook](references/research/remodex-hosted-runbook.md)
 - [Remodex compatibility-study notes](remodex/README.md)
 - [Shortcuts runbook (fallback)](references/shortcuts-runbook.md)
 - [Shortcut build pack](references/shortcuts/cra-operator-shortcut.md)

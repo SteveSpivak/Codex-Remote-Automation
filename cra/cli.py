@@ -39,6 +39,14 @@ from .shortcuts import (
     handle_shortcut_entry,
     run_shortcut,
 )
+from .remodex_upstream import (
+    build_patched_runtime,
+    install_launch_agent,
+    launch_agent_status,
+    resolve_installed_remodex,
+    run_upstream_remodex,
+    uninstall_launch_agent,
+)
 from .ui_probe import parse_probe_output, run_probe
 from .validation import build_actuation_request, build_approval_event
 from .vision import capture_codex_window_ocr, find_text_target
@@ -251,6 +259,60 @@ def main() -> int:
 
     imessage_parse_parser = subparsers.add_parser("imessage-parse", help="Parse a message body into a broker response if possible.")
     imessage_parse_parser.add_argument("--text", required=True)
+
+    remodex_build_parser = subparsers.add_parser(
+        "remodex-upstream-build",
+        help="Build or refresh the repo-managed patched upstream Remodex runtime.",
+    )
+    remodex_build_parser.add_argument("--runtime-dir", default="var/generated/remodex-upstream")
+    remodex_build_parser.add_argument("--home")
+    remodex_build_parser.add_argument("--python-path")
+    remodex_build_parser.add_argument("--node-path")
+    remodex_build_parser.add_argument("--codex-path")
+    remodex_build_parser.add_argument("--remodex-bin")
+
+    remodex_run_parser = subparsers.add_parser(
+        "remodex-upstream-run",
+        help="Run the official upstream Remodex through the repo-managed file-backed wrapper.",
+    )
+    remodex_run_parser.add_argument("--runtime-dir", default="var/generated/remodex-upstream")
+    remodex_run_parser.add_argument("--remodex-command", choices=["up", "resume", "watch"], default="up")
+    remodex_run_parser.add_argument("--thread-id")
+    remodex_run_parser.add_argument("--home")
+    remodex_run_parser.add_argument("--python-path")
+    remodex_run_parser.add_argument("--node-path")
+    remodex_run_parser.add_argument("--codex-path")
+    remodex_run_parser.add_argument("--remodex-bin")
+
+    remodex_install_parser = subparsers.add_parser(
+        "remodex-install-launch-agent",
+        help="Write or install the hosted-default Remodex LaunchAgent.",
+    )
+    remodex_install_parser.add_argument("--runtime-dir", default="var/generated/remodex-upstream")
+    remodex_install_parser.add_argument("--install-path")
+    remodex_install_parser.add_argument("--stdout-log")
+    remodex_install_parser.add_argument("--stderr-log")
+    remodex_install_parser.add_argument("--bootstrap", action="store_true")
+    remodex_install_parser.add_argument("--home")
+    remodex_install_parser.add_argument("--python-path")
+    remodex_install_parser.add_argument("--node-path")
+    remodex_install_parser.add_argument("--codex-path")
+    remodex_install_parser.add_argument("--remodex-bin")
+
+    remodex_uninstall_parser = subparsers.add_parser(
+        "remodex-uninstall-launch-agent",
+        help="Unload and remove the hosted-default Remodex LaunchAgent.",
+    )
+    remodex_uninstall_parser.add_argument("--install-path")
+    remodex_uninstall_parser.add_argument("--home")
+    remodex_uninstall_parser.add_argument("--no-bootout", action="store_true")
+
+    remodex_status_parser = subparsers.add_parser(
+        "remodex-launch-agent-status",
+        help="Inspect whether the hosted-default Remodex LaunchAgent is installed and loaded.",
+    )
+    remodex_status_parser.add_argument("--install-path")
+    remodex_status_parser.add_argument("--home")
 
     args = parser.parse_args()
 
@@ -542,6 +604,71 @@ def main() -> int:
 
     if args.command == "imessage-parse":
         _json_print({"parsed": parse_response_message(args.text)})
+        return 0
+
+    if args.command == "remodex-upstream-build":
+        installed = resolve_installed_remodex(
+            home=args.home,
+            python_path=args.python_path,
+            node_path=args.node_path,
+            codex_path=args.codex_path,
+            remodex_bin=args.remodex_bin,
+        )
+        _json_print(build_patched_runtime(installed, base_dir=Path(args.runtime_dir)))
+        return 0
+
+    if args.command == "remodex-upstream-run":
+        installed = resolve_installed_remodex(
+            home=args.home,
+            python_path=args.python_path,
+            node_path=args.node_path,
+            codex_path=args.codex_path,
+            remodex_bin=args.remodex_bin,
+        )
+        return run_upstream_remodex(
+            installed,
+            base_dir=Path(args.runtime_dir),
+            command=args.remodex_command,
+            thread_id=args.thread_id,
+        )
+
+    if args.command == "remodex-install-launch-agent":
+        installed = resolve_installed_remodex(
+            home=args.home,
+            python_path=args.python_path,
+            node_path=args.node_path,
+            codex_path=args.codex_path,
+            remodex_bin=args.remodex_bin,
+        )
+        _json_print(
+            install_launch_agent(
+                installed,
+                base_dir=Path(args.runtime_dir),
+                install_path=Path(args.install_path) if args.install_path else None,
+                stdout_log=Path(args.stdout_log) if args.stdout_log else None,
+                stderr_log=Path(args.stderr_log) if args.stderr_log else None,
+                bootstrap=args.bootstrap,
+            )
+        )
+        return 0
+
+    if args.command == "remodex-uninstall-launch-agent":
+        _json_print(
+            uninstall_launch_agent(
+                home=args.home,
+                install_path=Path(args.install_path) if args.install_path else None,
+                bootout=not args.no_bootout,
+            )
+        )
+        return 0
+
+    if args.command == "remodex-launch-agent-status":
+        _json_print(
+            launch_agent_status(
+                home=args.home,
+                install_path=Path(args.install_path) if args.install_path else None,
+            )
+        )
         return 0
 
     if args.command == "broker-service":

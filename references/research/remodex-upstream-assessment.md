@@ -41,6 +41,11 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 - The official upstream bridge connected successfully to the local repo relay in a Mac-only test.
 - That proves the local relay can satisfy the upstream bridge handshake at least at a basic level.
 - It does not prove that the iPhone app accepts the same local relay path.
+- The local repo relay exposes only WebSocket session routing and `/health`; it does not implement the upstream `/v1/push/session/*` endpoints.
+- That means `push notify failed: not_found` is expected on the current local relay and should not be treated as proof that hosted upstream push is broken.
+- In upstream `secure-transport.js`, trusted reconnect still calls `rememberTrustedPhone(...)`.
+- In upstream `secure-device-state.js`, `rememberTrustedPhone(...)` always tries a Keychain-backed write first on macOS.
+- That explains the repeated Keychain prompt on reconnect and justifies a minimal local patch at the device-state persistence layer.
 
 ## Open Questions
 
@@ -54,6 +59,8 @@ Current evidence is strong enough to reject a custom bridge rewrite as the defau
 - Primary path should be: prove official `remodex` first.
 - CRA should wrap upstream behavior thinly for audit, policy, and replay needs.
 - The in-repo `remodex/` folder should be treated as a compatibility study only.
+- The local relay remains a research surface; hosted upstream is the daily-driver baseline for this repo.
+- The smallest justified fork point is upstream `secure-device-state.js`, not the full bridge or relay.
 - Forking bridge or relay behavior should happen only after a known-good upstream phone pairing exists and a hard blocker is documented.
 
 ## Decision Gate

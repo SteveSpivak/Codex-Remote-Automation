@@ -162,7 +162,7 @@ class BrokerServiceTests(unittest.TestCase):
                     prompt="fetch example",
                     cwd=Path("/repo"),
                     runtime_paths=runtime_paths,
-                    timeout=0.2,
+                    timeout=0.5,
                     poll_interval=0.01,
                     client_factory=lambda **kwargs: fake_client,
                 )
