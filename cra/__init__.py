@@ -8,6 +8,7 @@ __all__ = [
     "app_server",
     "broker",
     "broker_service",
+    "bridge",
     "imessage",
     "actuator",
     "audit",

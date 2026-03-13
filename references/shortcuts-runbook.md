@@ -1,14 +1,37 @@
 # CRA Shortcuts Runbook
 
-CRA uses iPhone Shortcuts as the operator-facing approval surface. The Shortcut belongs to the broker path first and the hybrid-native prototype second.
+Shortcuts is now a transitional CRA fallback path. The primary operator surface is the native iPhone CRA Operator app over the secure bridge and self-hosted relay.
+
+Use this runbook when:
+
+- the native iOS app is not ready yet
+- you need a low-friction dev harness for broker response testing
+- you want a human-operated fallback that does not touch the desktop UI directly
 
 If iPhone Shortcuts are unavailable, the same broker response contract can be carried over iMessage using the Mac-side transport in `cra.imessage`.
 
 The recommended build pack for the iPhone Shortcut is in [references/shortcuts/cra-operator-shortcut.md](/Users/steve.spivak/Documents/MAcosAutomation/references/shortcuts/cra-operator-shortcut.md).
 
-## Primary Broker Path
+## Relationship To The Primary Bridge Path
 
-The Shortcut should receive a sanitized approval request derived from the App Server contract:
+The canonical approval contract is still the same:
+
+```json
+{
+  "request_id": "<opaque approval callback id>",
+  "decision": "accept | acceptForSession | decline | cancel"
+}
+```
+
+What changed is the primary transport. In the bridge architecture:
+
+- the native iOS app receives pending approvals through encrypted relay envelopes
+- the bridge stays warm across reconnects
+- Shortcuts is fallback only
+
+## Fallback Broker Path
+
+The Shortcut should receive a sanitized approval request derived from the same CRA contract:
 
 ```json
 {
@@ -23,7 +46,7 @@ The Shortcut should receive a sanitized approval request derived from the App Se
 }
 ```
 
-The Shortcut should return only:
+The Shortcut should return only the canonical broker response:
 
 ```json
 {
@@ -34,7 +57,7 @@ The Shortcut should return only:
 
 ## Suggested iPhone Shortcut Shape
 
-1. Optional `Set VPN` or Tailscale-connect step
+1. Optional `Set VPN` or Tailscale-connect step when the fallback response path uses SSH
 2. Fetch the current pending approval payload:
 
 ```bash
@@ -44,13 +67,13 @@ bash /Users/steve.spivak/Documents/MAcosAutomation/scripts/cra_shortcut_fetch_pe
 3. Show the approval summary and available decisions
 4. Optionally collect a free-text note for CRA audit only
 5. Return the chosen decision to the local CRA broker over a private channel such as Tailscale + SSH
-4. Recommended SSH target:
+6. Recommended SSH target:
 
 ```bash
 bash /Users/steve.spivak/Documents/MAcosAutomation/scripts/cra_shortcut_respond.sh "<request_id>" "<decision>" "<optional_note>"
 ```
 
-6. Surface explicit errors for stale requests, duplicate taps, or transport failures
+7. Surface explicit errors for stale requests, duplicate taps, or transport failures
 
 The Shortcut should not decide how Codex is actuated locally. It should only return the decision to the broker.
 
@@ -67,7 +90,7 @@ The reply contract is unchanged: `decision + request_id`.
 
 ## Broker Runtime Commands
 
-Use these repo-local commands while the App Server broker path is being integrated:
+Use these repo-local commands while the native bridge client is still being integrated:
 
 ```bash
 python3 -m cra.cli broker-service --prompt "Run git status and wait for approval"
@@ -89,4 +112,5 @@ That path exists only for the hybrid-native prototype in `cra/` and should be tr
 
 - If VPN or SSH is unavailable, stop before sending the decision.
 - If the broker reports a stale or unknown `request_id`, surface the error and do not retry blindly.
+- If the native iOS app is available, prefer it over Shortcuts.
 - If fallback prototype commands are used, clearly label the run as fallback in the operator notes or audit output.

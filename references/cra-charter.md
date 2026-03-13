@@ -8,9 +8,9 @@
 
 ## 1. Problem Statement
 
-Codex can surface high-stakes approval points while working across files, commands, and long-running tasks. A human should be able to review and decide on those approvals from an iPhone without staying at the Mac and without relying on brittle desktop-button automation as the primary control plane.
+Codex can surface high-stakes approval points while working across files, commands, and long-running tasks. A human should be able to review and decide on those approvals from an iPhone without staying at the Mac and without relying on brittle desktop-button automation or ad hoc mobile shortcuts as the primary control plane.
 
-Project CRA solves this by inserting a local approval broker between Codex and the operator. The broker consumes Codex approval events through `codex app-server`, normalizes them into a mobile-safe contract, delivers them to the iPhone, and returns the operator's decision back to Codex over a private channel.
+Project CRA solves this by inserting a warm local CRA Bridge between Codex and the operator. The bridge consumes Codex approval events through `codex app-server`, normalizes them into a mobile-safe contract, synchronizes them over encrypted envelopes through a self-hosted relay, and returns the operator's decision back to Codex from a native iPhone client.
 
 ---
 
@@ -20,14 +20,16 @@ Project CRA solves this by inserting a local approval broker between Codex and t
 |------|--------------------|
 | Real-time Codex approval from iOS | Approve or decline any Codex approval request within 2 seconds of notification |
 | Sub-0.5s feedback loop | iPhone tap -> broker response in < 500ms (P95) |
-| Protocol-first control plane | Primary path uses App Server approval events, not GUI scraping |
-| Zero exposed attack surface | No open router ports; no public-internet SSH; no cloud-sync polling |
+| Protocol-first control plane | Primary path uses App Server approval events, not GUI scraping or Shortcut-only glue |
+| Transport-only relay | Relay routes encrypted envelopes and never sees approval plaintext |
+| Zero exposed attack surface | No public-internet SSH; no managed relay dependency; no cloud-sync polling |
 | Stable replay and validation | Approval transcripts can be replayed and tested with `codex exec --json` or App Server fixtures |
 
 ### Non-goals
 
 - Building a general remote-control framework for arbitrary macOS apps
 - Making desktop Accessibility or OCR the primary approval path
+- Building a general mobile Codex chat client or Git workstation in v1
 - Removing the human approval gate
 - Supporting multiple simultaneous approvers in v1
 
@@ -40,16 +42,20 @@ Project CRA solves this by inserting a local approval broker between Codex and t
 ```text
 Codex (macOS, App Server)
     ↓ JSON-RPC approval request
-CRA broker (local)
-    ↓ sanitized mobile approval payload
-iPhone approval surface
-    ↓ private decision transport (Tailscale SSH or equivalent)
-CRA broker
+CRA Bridge (local, warm session)
+    ↓ encrypted approval envelope
+self-hosted relay (transport only)
+    ↓ encrypted approval envelope
+native iPhone CRA Operator app
+    ↓ encrypted decision envelope
+self-hosted relay
+    ↓ encrypted decision envelope
+CRA Bridge
     ↓ JSON-RPC approval response
 Codex continues
 ```
 
-`codex exec --json` is the secondary surface for replay fixtures, contract validation, and long-horizon testing. The existing Accessibility/OCR tooling remains available as fallback and discovery support only.
+`codex exec --json` is the secondary surface for replay fixtures, contract validation, and long-horizon testing. Shortcuts, iMessage, and the existing Accessibility/OCR tooling remain available as fallback and discovery support only.
 
 ### 3.2 Canonical approval request
 
@@ -79,12 +85,14 @@ Codex continues
 }
 ```
 
-### 3.4 Mobile and transport path
+### 3.4 Bridge and mobile transport path
 
-- iPhone Shortcuts remains the primary operator surface
-- Tailscale and SSH remain acceptable private return channels when the decision needs to reach the local broker from off-network
-- Third-party notification relays such as Pushcut or Pushover are optional adapters, not the canonical architecture
-- The transport returns a decision to the broker; it does not drive the Codex desktop UI directly
+- The CRA Bridge keeps the local App Server session warm across phone disconnects
+- The relay is self-hosted and transport-only: it can see session metadata, but not approval payload plaintext
+- The native iPhone CRA Operator app is the primary operator surface
+- QR bootstrap is the default first-pairing mechanism; trusted reconnect is the default steady-state mechanism
+- Shortcuts or iMessage may be used only as transitional fallback tooling before native mobile parity
+- The transport returns a decision to the bridge; it does not drive the Codex desktop UI directly
 
 ### 3.5 Fallback path
 
@@ -98,9 +106,10 @@ Codex continues
 |-------------|-----------------|
 | Desktop-button automation as the primary architecture | Too brittle relative to App Server approval events |
 | Codex log parsing as the primary approval source | Inferential and weaker than protocol-native approval requests |
+| Managed relay dependency | Unnecessary trust boundary for a transport-only relay the operator can self-host |
 | iCloud / Dropbox / Google Drive polling | Sync latency, collision risk, and poor auditability |
-| Dynamic DNS + router port forward | Exposes the Mac to the public internet |
-| Cloud relay as the only control plane | Adds an unnecessary trust boundary when local/private transport is available |
+| Dynamic DNS + router port forward | Exposes the bridge or Mac to the public internet |
+| Shortcut-only operator path as the long-term architecture | Too brittle and too constrained for pairing, reconnect, and encrypted session management |
 
 ---
 
@@ -113,33 +122,34 @@ Codex continues
 - Align repo docs, skills, `AGENTS.md`, and `.codex` guidance around the App-Server-first model
 - **Milestone:** repo guidance and contracts all reflect the protocol-first architecture
 
-### Phase 2 — Broker core
+### Phase 2 — Bridge core
 
-- Implement a local CRA broker that connects to `codex app-server` over `stdio`
+- Implement a local CRA Bridge core that connects to `codex app-server` over `stdio`
 - Normalize approval requests, audit raw and sanitized events, and expose a mobile-safe request contract
 - Add transcript fixtures and replay support
-- **Milestone:** live approval request -> normalized broker payload -> auditable local record
+- **Milestone:** live approval request -> normalized bridge payload -> auditable local record
 
-### Phase 3 — Mobile decision transport
+### Phase 3 — Secure bridge and relay
 
-- Build the iPhone Shortcut flow around the canonical request and response contracts
-- Return decisions to the broker over Tailscale/SSH or another private transport
-- Handle duplicate taps, stale requests, and transport failures explicitly
-- **Milestone:** phone decision resolves the matching broker request end-to-end
+- Turn the local broker into a long-lived CRA Bridge with warm-session semantics
+- Add QR bootstrap, trusted reconnect, encrypted envelopes, and replay protection
+- Implement the self-hosted transport-only relay
+- **Milestone:** pending approvals survive reconnect and relay plaintext exposure is eliminated
 
-### Phase 4 — Fallback and discovery
+### Phase 4 — Native iPhone operator app
 
-- Maintain the existing Accessibility/OCR tooling for discovery and emergency fallback
-- Keep selector notes, screenshot captures, and OCR findings current when Codex UI changes
-- Do not promote the fallback path over the broker path
-- **Milestone:** visible approval prompt can be inspected or actuated only if the primary path is unavailable
+- Build the native iOS client for pairing, reconnect, pending approval sync, and decision submission
+- Keep the response contract fixed to `request_id + decision`, with optional note for CRA-local audit only
+- **Milestone:** paired iPhone app resolves the matching bridge request end-to-end
 
-### Phase 5 — QA, automations, and hardening
+### Phase 5 — Fallback, QA, and hardening
 
-- Replay approval fixtures with `codex exec --json` and App Server transcripts
-- Exercise resilience scenarios: duplicate decisions, stale `request_id`, sleep/wake, VPN drops, revoked permissions
-- Document how recurring checks should use Codex automations and Triage when native automations are sufficient
+- Keep Shortcuts, iMessage, Accessibility, and OCR as explicit fallback or discovery tooling
+- Replay approval fixtures and reconnect scenarios with `codex exec --json` and App Server transcripts
+- Exercise resilience scenarios: duplicate decisions, stale `request_id`, sleep/wake, relay reconnect, and revoked permissions
 - **Milestone:** KPI targets met and replay evidence captured
+
+Future recurring checks should use Codex automations and Triage when native automations are sufficient.
 
 ---
 
@@ -149,10 +159,11 @@ Codex continues
 |------|-----------|--------|------------|
 | App Server protocol changes | Medium | High | Validate against `codex app-server --help` and shared contract docs before implementation |
 | Decision replay or mismatch | Medium | High | Use `request_id` as the response handle and record the full request/response pair |
-| Private return transport unavailable off-network | Medium | Medium | Tailscale health checks, retry logic, and explicit operator-visible errors |
+| Relay reconnect or phone handoff failure | Medium | High | Trusted reconnect, pending snapshot catch-up, and explicit stale-request handling |
+| Pairing secret misuse | Low | High | Short QR expiry, bridge-side trust store, and key rotation |
 | Broker and mobile payload drift | Medium | High | Single canonical request/response examples in shared docs and tests |
 | Accessibility or OCR fallback drifts after Codex updates | High | Medium | Keep fallback isolated and clearly secondary |
-| Third-party notification adapter downtime | Low | Medium | Keep the broker and transport contract independent of any single notification provider |
+| Managed or third-party relay compromise | Low | High | Self-host the relay and keep it blind to approval plaintext |
 
 ---
 
@@ -162,9 +173,10 @@ Codex continues
 |--------|--------|
 | Outbound notification latency (approval request -> phone visible) | < 2.0s |
 | Inbound feedback latency (tap -> broker response) | < 500ms P95 |
+| Relay plaintext exposure | 0 plaintext approval payloads visible to relay |
 | Protocol/request mismatch rate | 0% |
 | Replay fixture success rate | 100% on approved test corpus |
-| Idle broker overhead | < 1% CPU and < 50 MB RAM |
+| Idle bridge overhead | < 1% CPU and < 50 MB RAM |
 | Fallback activation frequency | Near-zero in normal operation |
 
 ---
@@ -174,19 +186,20 @@ Codex continues
 | Role | Responsibility |
 |------|---------------|
 | CRA Orchestrator | Cross-skill routing, phase ordering, final contract assembly |
-| Backend / Broker Developer | App Server client, JSON-RPC handling, transcript normalization, replay fixtures |
-| macOS / Codex Environment Engineer | Repo `.codex` setup, App Server lifecycle, fallback Accessibility/OCR tooling |
-| Networking & Mobile Architect | iPhone Shortcut flow, Tailscale/SSH decision delivery, optional notification adapters |
-| Security Specialist | Broker threat model, transport hardening, transcript integrity, approval authenticity |
-| Test Engineer | Replay suites, resilience validation, KPI evidence, fallback reliability checks |
+| Backend / Bridge Developer | App Server client, bridge runtime, JSON-RPC handling, transcript normalization, replay fixtures |
+| macOS / Codex Environment Engineer | Repo `.codex` setup, App Server lifecycle, bridge residency, QR artifact generation, fallback Accessibility/OCR tooling |
+| Networking & Mobile Architect | Self-hosted relay, native iOS client transport, pairing/reconnect UX, fallback Shortcuts when needed |
+| Security Specialist | Bridge threat model, pairing and reconnect hardening, relay blindness, transcript integrity, approval authenticity |
+| Test Engineer | Replay suites, pairing/reconnect validation, KPI evidence, fallback reliability checks |
 
 ---
 
 ## 8. Definition of Done
 
-- [ ] App-Server-first approval broker path implemented and documented
+- [ ] App-Server-first CRA Bridge path implemented and documented
 - [ ] Canonical request and response contracts aligned across docs, skills, and tests
-- [ ] Private transport validated off-network
+- [ ] Self-hosted relay and encrypted session envelopes validated
+- [ ] Native iPhone operator app resolves live approvals
 - [ ] Replay fixtures and long-horizon validation evidence captured
-- [ ] Fallback Accessibility/OCR tooling explicitly documented as secondary
+- [ ] Transitional fallback tooling explicitly documented as secondary
 - [ ] Repo-local Codex guidance (`AGENTS.md`, `.codex/`) checked in and aligned with the charter

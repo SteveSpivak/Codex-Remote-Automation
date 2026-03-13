@@ -5,6 +5,7 @@
 # - do not change system settings from project setup
 #
 # Shared repo actions live in `.codex/commands/`.
-# Primary CRA work should prefer `codex app-server` and `codex exec --json`.
+# Primary CRA work should prefer `codex app-server`, the CRA bridge, and `codex exec --json`.
+# Shortcuts, iMessage, and UI automation remain fallback-only.
 
 project_root_markers = [".git"]

@@ -1,17 +1,16 @@
 # Codex Remote Automation
 
-Codex Remote Automation (CRA) is an App-Server-first architecture for adding a human-in-the-loop approval broker to Codex on macOS. The primary design is protocol-based: Codex emits approval requests through `codex app-server`, a local CRA broker normalizes and audits them, an iPhone approval surface returns the operator's decision, and the broker resolves the request back to Codex.
+Codex Remote Automation (CRA) is an approval-first remote control plane for Codex on macOS. The primary architecture is no longer Shortcut-driven. The Mac keeps a warm `codex app-server` session alive, a CRA bridge normalizes approvals and encrypts mobile traffic, a self-hosted WebSocket relay forwards only opaque envelopes, and a native iPhone client returns the operator's decision back to the bridge.
 
-This repository contains the project charter, specialist CRA skills, repo-native Codex guidance, and a fallback hybrid-native prototype. The current `cra/` Python package, Accessibility helpers, and OCR discovery flow remain in the repo for fallback and discovery work only; they are not the primary architecture.
+This repository contains the CRA bridge code, the self-hosted relay, a native iOS client skeleton, specialist CRA skills, repo-native Codex guidance, and explicit fallback tooling. Shortcuts, iMessage, Accessibility, AppleScript, and OCR remain in the repo as transitional or discovery paths only.
 
 ## Architecture Summary
 
-- Primary path: `codex app-server` -> local CRA broker -> iPhone approval surface -> broker decision response -> Codex
-- Alternate operator transport: iMessage send through Messages plus inbound reply polling from `~/Library/Messages/chat.db`, still resolving back through the same broker decision path
-  Note: reading `chat.db` may require Full Disk Access for the host process running CRA
-- Replay and testing path: `codex exec --json` and App Server protocol fixtures
-- Fallback path: the existing Shortcuts plus Accessibility/OCR prototype under `cra/`, `scripts/`, and `references/discovery/`
-- Security model: private transport only, protocol-aware audit logging, no public exposure, and human approval preserved throughout
+- Primary path: `codex app-server` -> warm CRA Bridge -> encrypted session envelopes -> self-hosted relay -> native iOS CRA Operator app -> bridge decision response -> Codex
+- Replay and testing path: `codex exec --json`, broker replay fixtures, and bridge protocol tests
+- Transitional fallback path: Shortcuts or iMessage for operator decisions when the native iOS app is not yet available
+- Discovery/emergency fallback path: Accessibility, AppleScript, screenshot, and OCR helpers under `cra/`, `scripts/`, and `references/discovery/`
+- Security model: relay is transport-only, approval payloads remain encrypted in transit, replay protection is mandatory, and human approval is preserved throughout
 
 ## Repository Layout
 
@@ -23,11 +22,16 @@ This repository contains the project charter, specialist CRA skills, repo-native
 |-- AGENTS.md
 |-- README.md
 |-- cra/
+|   `-- bridge/
+|-- ios/
+|   `-- CRAOperatorApp/
+|-- relay/
 |-- launchd/
 |-- references/
 |   |-- cra-anti-patterns.md
 |   |-- cra-charter.md
 |   |-- cra-standards.md
+|   |-- bridge/
 |   |-- discovery/
 |   |-- output-contracts.md
 |   `-- shortcuts-runbook.md
@@ -42,23 +46,21 @@ This repository contains the project charter, specialist CRA skills, repo-native
     `-- cra-test-engineer/SKILL.md
 ```
 
-## Protocol Quick Start
+## Bridge Quick Start
 
-Use these commands to validate the App Server and replay surfaces from the repo root:
+Use these commands from the repo root to exercise the primary bridge path:
 
 ```bash
+node relay/server.js
+python3 -m cra.cli bridge-create-pairing --relay-url ws://127.0.0.1:8787
+python3 -m cra.cli bridge-service --relay-url ws://127.0.0.1:8787 --prompt "Run git status and wait for approval"
+python3 -m cra.cli bridge-state
 codex app-server --help
 codex exec --help
-python3 -m cra.cli broker-service --prompt "Run git status and wait for approval" --timeout 30
-python3 -m cra.cli broker-pending
-python3 -m cra.cli broker-shortcut-payload
-python3 -m cra.cli broker-respond --request-id <request_id> --decision decline
-python3 -m cra.cli build-broker-response-ssh-command --request-id <request_id> --decision decline --operator-note "Optional audit note"
-python3 -m cra.cli imessage-poll --handle <your-imessage-handle>
-python3 -m cra.cli imessage-parse --text "decline <request_id>"
 python3 -m cra.cli broker-replay --input tests/fixtures/broker_command_flow.jsonl --auto-decision decline
 python3 -m cra.cli broker-summarize
 python3 -m unittest discover -s tests -p 'test_*.py'
+node --check relay/server.js
 ```
 
 Repo-native Codex commands are checked in under `.codex/commands/`:
@@ -66,10 +68,27 @@ Repo-native Codex commands are checked in under `.codex/commands/`:
 - `/cra-tests`
 - `/cra-discovery`
 - `/cra-app-server-readiness`
+- `/cra-bridge-readiness`
 
-## Fallback Prototype Quick Start
+The native iOS operator client source lives under `ios/CRAOperatorApp/`. This repo currently ships a source skeleton rather than a complete Xcode project because the current Mac has Command Line Tools but not the full Xcode app.
 
-Run the existing hybrid-native checks only for fallback discovery or emergency UI experimentation:
+## Transitional Fallback Quick Start
+
+Run the Shortcuts or iMessage path only while the native iOS app is incomplete or unavailable:
+
+```bash
+python3 -m cra.cli broker-service --prompt "Run git status and wait for approval"
+python3 -m cra.cli broker-pending
+python3 -m cra.cli broker-shortcut-payload
+python3 -m cra.cli broker-respond --request-id <request_id> --decision decline
+python3 -m cra.cli build-broker-response-ssh-command --request-id <request_id> --decision decline --operator-note "Optional audit note"
+python3 -m cra.cli imessage-poll --handle <your-imessage-handle>
+python3 -m cra.cli imessage-parse --text "decline <request_id>"
+```
+
+## Discovery And Emergency Fallback
+
+Run the hybrid-native checks only for fallback discovery or emergency UI experimentation:
 
 ```bash
 python3 -m cra.cli discover
@@ -82,7 +101,7 @@ python3 -m cra.cli capture-window-ocr --app-name Codex --output references/disco
 python3 -m cra.cli shortcut-entry --decision approve --action-id 11111111-1111-4111-8111-111111111111
 ```
 
-The fallback prototype uses `action_id`, Accessibility selectors, and OCR helpers. Those contracts are intentionally scoped to discovery docs and prototype testing.
+The discovery path uses `action_id`, Accessibility selectors, and OCR helpers. Those contracts are intentionally scoped to fallback docs and prototype testing.
 
 ## Core Docs
 
@@ -90,7 +109,8 @@ The fallback prototype uses `action_id`, Accessibility selectors, and OCR helper
 - [CRA standards](references/cra-standards.md)
 - [CRA anti-patterns](references/cra-anti-patterns.md)
 - [CRA output contracts](references/output-contracts.md)
-- [Shortcuts runbook](references/shortcuts-runbook.md)
+- [Secure bridge protocol](references/bridge/secure-bridge-protocol.md)
+- [Shortcuts runbook (fallback)](references/shortcuts-runbook.md)
 - [Shortcut build pack](references/shortcuts/cra-operator-shortcut.md)
 - [Stage 0 fallback feasibility notes](references/discovery/stage-0-feasibility.md)
 - [Stage 2 fallback selector notes](references/discovery/stage-2-selector-freeze.md)

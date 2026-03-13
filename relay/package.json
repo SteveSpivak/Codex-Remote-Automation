@@ -1,0 +1,10 @@
+{
+  "name": "cra-relay",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Transport-only WebSocket relay for CRA bridge sessions.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  }
+}

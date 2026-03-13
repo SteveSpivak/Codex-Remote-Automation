@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+import uuid
 from pathlib import Path
 
 from .ax_tree import dump_ax_tree
@@ -10,6 +11,9 @@ from .accessibility import enable_manual_accessibility
 from .actuator import run_local_actuation
 from .app_server import AppServerClient
 from .audit import append_jsonl
+from .bridge import default_bridge_paths, load_or_create_bridge_device_state, run_bridge_service
+from .bridge.qr import pairing_uri, write_pairing_qr_stub
+from .bridge.secure_transport import BridgeSecureTransport
 from .broker import (
     BrokerState,
     audit_raw_message,
@@ -143,6 +147,35 @@ def main() -> int:
     broker_demo_parser.add_argument("--auto-decision", choices=["accept", "acceptForSession", "decline", "cancel"])
     broker_demo_parser.add_argument("--timeout", type=float, default=45.0)
     broker_demo_parser.add_argument("--audit-dir", default="var/audit")
+
+    bridge_pairing_parser = subparsers.add_parser(
+        "bridge-create-pairing",
+        help="Create a secure CRA bridge pairing payload and QR stub.",
+    )
+    bridge_pairing_parser.add_argument("--relay-url", default="ws://127.0.0.1:8787")
+    bridge_pairing_parser.add_argument("--bridge-dir", default="var/bridge")
+    bridge_pairing_parser.add_argument("--audit-dir", default="var/audit")
+
+    bridge_state_parser = subparsers.add_parser(
+        "bridge-state",
+        help="Read the current CRA bridge runtime state file.",
+    )
+    bridge_state_parser.add_argument("--bridge-dir", default="var/bridge")
+    bridge_state_parser.add_argument("--audit-dir", default="var/audit")
+
+    bridge_service_parser = subparsers.add_parser(
+        "bridge-service",
+        help="Run the Remodex-style CRA bridge with a warm local App Server session.",
+    )
+    bridge_service_parser.add_argument("--relay-url", default="ws://127.0.0.1:8787")
+    bridge_service_parser.add_argument("--bridge-dir", default="var/bridge")
+    bridge_service_parser.add_argument("--audit-dir", default="var/audit")
+    bridge_service_parser.add_argument("--cwd", default=str(_repo_root()))
+    bridge_service_parser.add_argument("--prompt")
+    bridge_service_parser.add_argument("--approval-policy", default="unlessTrusted")
+    bridge_service_parser.add_argument("--sandbox-policy", default="workspaceWrite")
+    bridge_service_parser.add_argument("--timeout", type=float, default=300.0)
+    bridge_service_parser.add_argument("--poll-interval", type=float, default=0.25)
 
     broker_replay_parser = subparsers.add_parser(
         "broker-replay",
@@ -372,6 +405,54 @@ def main() -> int:
 
     if args.command == "broker-summarize":
         _json_print(summarize_broker_audit(default_broker_audit_paths(Path(args.audit_dir))))
+        return 0
+
+    if args.command == "bridge-create-pairing":
+        bridge_paths = default_bridge_paths(base_dir=Path(args.bridge_dir), audit_dir=Path(args.audit_dir))
+        device_state = load_or_create_bridge_device_state(bridge_paths.device_state_path)
+        transport = BridgeSecureTransport(
+            session_id=str(uuid.uuid4()),
+            relay_url=args.relay_url.rstrip("/"),
+            device_state=device_state,
+        )
+        payload = transport.create_pairing_payload()
+        bridge_paths.pairing_payload_path.parent.mkdir(parents=True, exist_ok=True)
+        bridge_paths.pairing_payload_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        write_pairing_qr_stub(bridge_paths.pairing_qr_path, payload)
+        _json_print(
+            {
+                "status": "ok",
+                "payload": payload,
+                "pairing_uri": pairing_uri(payload),
+                "payload_path": str(bridge_paths.pairing_payload_path),
+                "qr_path": str(bridge_paths.pairing_qr_path),
+            }
+        )
+        return 0
+
+    if args.command == "bridge-state":
+        bridge_paths = default_bridge_paths(base_dir=Path(args.bridge_dir), audit_dir=Path(args.audit_dir))
+        _json_print(json.loads(bridge_paths.runtime_state_path.read_text(encoding="utf-8")))
+        return 0
+
+    if args.command == "bridge-service":
+        timeout = args.timeout if args.timeout > 0 else None
+        bridge_paths = default_bridge_paths(base_dir=Path(args.bridge_dir), audit_dir=Path(args.audit_dir))
+        _json_print(
+            run_bridge_service(
+                relay_url=args.relay_url,
+                bridge_paths=bridge_paths,
+                cwd=Path(args.cwd),
+                prompt=args.prompt,
+                approval_policy=args.approval_policy,
+                sandbox_policy=args.sandbox_policy,
+                timeout=timeout,
+                poll_interval=args.poll_interval,
+            )
+        )
         return 0
 
     if args.command == "broker-pending":
