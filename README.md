@@ -85,12 +85,29 @@ This first-phase self-hosted path is intentionally narrow:
 - no self-hosted push endpoints
 - one stable command proof and one approval round-trip proof
 
+If you already know the stable relay address you want the phone to use, run the self-hosted wrapper directly with it:
+
+```bash
+cd /Users/steve.spivak/Documents/MAcosAutomation
+python3 -m cra.cli remodex-selfhosted-run --public-relay-base-url http://10.97.52.64:8787 --relay-host 0.0.0.0
+```
+
+To start the self-hosted QR flow automatically at login in a visible Terminal window, install the dedicated login LaunchAgent:
+
+```bash
+bash scripts/install_remodex_selfhosted_terminal_launchagent.sh --public-relay-base-url http://10.97.52.64:8787 --relay-host 0.0.0.0 --bootstrap
+bash scripts/remodex_selfhosted_terminal_launchagent_status.sh
+```
+
+This login LaunchAgent is separate from the hosted background agent. It opens Terminal after login, runs the self-hosted Remodex wrapper, and leaves the QR visible in that Terminal window.
+
 LaunchAgent helper commands:
 
 ```bash
 bash scripts/install_remodex_launchagent.sh --bootstrap
 bash scripts/remodex_launchagent_status.sh
 bash scripts/uninstall_remodex_launchagent.sh
+bash scripts/uninstall_remodex_selfhosted_terminal_launchagent.sh
 ```
 
 Use these repo-local commands to inspect the CRA environment around that upstream path:

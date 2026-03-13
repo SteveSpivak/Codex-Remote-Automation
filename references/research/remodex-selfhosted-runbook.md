@@ -39,6 +39,13 @@ The wrapper:
 - creates a Cloudflare Quick Tunnel
 - launches the official upstream `remodex up` against the public `wss://` relay URL
 
+If you are using a stable private or public relay address instead of Quick Tunnel, pass it explicitly:
+
+```bash
+cd /Users/steve.spivak/Documents/MAcosAutomation
+python3 -m cra.cli remodex-selfhosted-run --public-relay-base-url http://10.97.52.64:8787 --relay-host 0.0.0.0
+```
+
 ## 4. Control-Path Proof
 
 First prove the app can stay connected long enough to run a deterministic command.
@@ -100,9 +107,37 @@ Quick Tunnel hostname did not resolve yet: <host>
 
 that is a public-DNS readiness blocker on the current machine or network. Retry with a new tunnel or use a named tunnel or other public TLS front door before blaming the relay implementation.
 
-## 7. Out Of Scope For This Phase
+## 7. Auto-Start In Terminal At Login
+
+Use this only after the self-hosted command path is already working manually.
+
+```bash
+cd /Users/steve.spivak/Documents/MAcosAutomation
+bash scripts/install_remodex_selfhosted_terminal_launchagent.sh --public-relay-base-url http://10.97.52.64:8787 --relay-host 0.0.0.0 --bootstrap
+```
+
+What it does:
+
+- writes a user LaunchAgent under `~/Library/LaunchAgents`
+- runs at login in the Aqua session
+- opens Terminal
+- runs the self-hosted wrapper with the configured relay URL
+- leaves the Terminal window open so the QR remains visible
+
+Check status:
+
+```bash
+bash scripts/remodex_selfhosted_terminal_launchagent_status.sh
+```
+
+Remove it:
+
+```bash
+bash scripts/uninstall_remodex_selfhosted_terminal_launchagent.sh
+```
+
+## 8. Out Of Scope For This Phase
 
 - push or background wake
-- LaunchAgent packaging for the self-hosted path
 - public VPS deployment
 - router/DNS/TLS hardening beyond Quick Tunnel

@@ -5,6 +5,7 @@ import json
 import os
 import plistlib
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -22,6 +23,7 @@ from .broker_service import write_json_atomic
 
 
 LAUNCH_AGENT_LABEL = "com.stevespivak.remodex.upstream"
+SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL = "com.stevespivak.remodex.selfhosted.terminal"
 SELFHOSTED_RUNTIME_DIRNAME = "remodex-selfhosted"
 
 
@@ -51,6 +53,10 @@ def _launch_agent_dir(home: Path | None = None) -> Path:
 
 def _launch_agent_path(home: Path | None = None) -> Path:
     return _launch_agent_dir(home) / f"{LAUNCH_AGENT_LABEL}.plist"
+
+
+def _selfhosted_terminal_launch_agent_path(home: Path | None = None) -> Path:
+    return _launch_agent_dir(home) / f"{SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL}.plist"
 
 
 def _log_dir(home: Path | None = None) -> Path:
@@ -181,6 +187,10 @@ def selfhosted_runtime_paths(*, base_dir: Path | None = None) -> SelfHostedRunti
         relay_log_path=root / "relay.log",
         tunnel_log_path=root / "cloudflared.log",
     )
+
+
+def _selfhosted_terminal_command_script_path(base_dir: Path | None = None) -> Path:
+    return _selfhosted_runtime_root(base_dir) / "launch-remodex-selfhosted.command"
 
 
 def _patch_digest(path: Path) -> str:
@@ -869,6 +879,264 @@ def launch_agent_status(
     )
     return {
         "label": LAUNCH_AGENT_LABEL,
+        "plist_path": str(destination),
+        "plist_exists": destination.exists(),
+        "loaded": completed.returncode == 0,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout.strip(),
+        "stderr": completed.stderr.strip(),
+    }
+
+
+def selfhosted_terminal_command(
+    installed: InstalledRemodexPaths,
+    *,
+    base_dir: Path | None = None,
+    public_relay_base_url: str,
+    relay_host: str = "0.0.0.0",
+    relay_port: int = 8787,
+    extra_ca_common_names: list[str] | None = None,
+) -> str:
+    runtime = ensure_patched_runtime(installed, base_dir=base_dir)
+    extra_ca_cert_path = build_extra_ca_bundle(runtime, common_names=extra_ca_common_names or [])
+    env = _runtime_env(installed, extra_ca_cert_path=extra_ca_cert_path)
+    argv = [
+        str(installed.python_path),
+        "-m",
+        "cra.cli",
+        "remodex-selfhosted-run",
+        "--runtime-dir",
+        str(runtime.runtime_root),
+        "--public-relay-base-url",
+        public_relay_base_url,
+        "--relay-host",
+        relay_host,
+        "--relay-port",
+        str(relay_port),
+        "--home",
+        str(installed.home),
+        "--python-path",
+        str(installed.python_path),
+        "--node-path",
+        str(installed.node_path),
+        "--codex-path",
+        str(installed.codex_path),
+        "--remodex-bin",
+        str(installed.remodex_bin),
+    ]
+    for common_name in extra_ca_common_names or []:
+        argv.extend(["--extra-ca-cn", common_name])
+
+    setup_lines = [
+        f"cd {shlex.quote(str(_repo_root()))}",
+        f"export HOME={shlex.quote(str(installed.home))}",
+        f"export PYTHONPATH={shlex.quote(str(_repo_root()))}",
+        f"export PATH={shlex.quote(env['PATH'])}",
+    ]
+    if extra_ca_cert_path is not None:
+        setup_lines.append(f"export NODE_EXTRA_CA_CERTS={shlex.quote(str(extra_ca_cert_path))}")
+
+    runtime_command = " ".join(shlex.quote(part) for part in argv)
+    tail_lines = [
+        "EXIT_CODE=$?",
+        "echo",
+        "echo \"[cra-selfhosted] remodex exited with code ${EXIT_CODE}\"",
+        "exec ${SHELL:-/bin/zsh} -l",
+    ]
+    return " && ".join(setup_lines + [runtime_command]) + "; " + "; ".join(tail_lines)
+
+
+def write_selfhosted_terminal_command_script(
+    installed: InstalledRemodexPaths,
+    *,
+    base_dir: Path | None = None,
+    public_relay_base_url: str,
+    relay_host: str = "0.0.0.0",
+    relay_port: int = 8787,
+    extra_ca_common_names: list[str] | None = None,
+) -> Path:
+    command_script_path = _selfhosted_terminal_command_script_path(base_dir)
+    command_script_path.parent.mkdir(parents=True, exist_ok=True)
+    launch_command = selfhosted_terminal_command(
+        installed,
+        base_dir=base_dir,
+        public_relay_base_url=public_relay_base_url,
+        relay_host=relay_host,
+        relay_port=relay_port,
+        extra_ca_common_names=extra_ca_common_names,
+    )
+    command_script_path.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        f"{launch_command}\n",
+        encoding="utf-8",
+    )
+    command_script_path.chmod(0o755)
+    return command_script_path
+
+
+def selfhosted_terminal_launch_agent_payload(
+    installed: InstalledRemodexPaths,
+    *,
+    base_dir: Path | None = None,
+    public_relay_base_url: str,
+    relay_host: str = "0.0.0.0",
+    relay_port: int = 8787,
+    stdout_log: Path | None = None,
+    stderr_log: Path | None = None,
+    extra_ca_common_names: list[str] | None = None,
+) -> dict[str, Any]:
+    log_root = _log_dir(installed.home)
+    stdout_path = (
+        stdout_log or (log_root / "remodex-selfhosted-terminal.stdout.log")
+    ).expanduser().resolve()
+    stderr_path = (
+        stderr_log or (log_root / "remodex-selfhosted-terminal.stderr.log")
+    ).expanduser().resolve()
+    command_script_path = write_selfhosted_terminal_command_script(
+        installed,
+        base_dir=base_dir,
+        public_relay_base_url=public_relay_base_url,
+        relay_host=relay_host,
+        relay_port=relay_port,
+        extra_ca_common_names=extra_ca_common_names,
+    )
+    return {
+        "Label": SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL,
+        "ProgramArguments": [
+            "/usr/bin/open",
+            "-a",
+            "Terminal",
+            str(command_script_path),
+        ],
+        "WorkingDirectory": str(_repo_root()),
+        "EnvironmentVariables": {
+            "HOME": str(installed.home),
+        },
+        "RunAtLoad": True,
+        "KeepAlive": False,
+        "LimitLoadToSessionType": ["Aqua"],
+        "StandardOutPath": str(stdout_path),
+        "StandardErrorPath": str(stderr_path),
+    }
+
+
+def write_selfhosted_terminal_launch_agent_file(
+    installed: InstalledRemodexPaths,
+    *,
+    public_relay_base_url: str,
+    relay_host: str = "0.0.0.0",
+    relay_port: int = 8787,
+    base_dir: Path | None = None,
+    install_path: Path | None = None,
+    stdout_log: Path | None = None,
+    stderr_log: Path | None = None,
+    extra_ca_common_names: list[str] | None = None,
+) -> dict[str, Any]:
+    payload = selfhosted_terminal_launch_agent_payload(
+        installed,
+        base_dir=base_dir,
+        public_relay_base_url=public_relay_base_url,
+        relay_host=relay_host,
+        relay_port=relay_port,
+        stdout_log=stdout_log,
+        stderr_log=stderr_log,
+        extra_ca_common_names=extra_ca_common_names,
+    )
+    destination = (
+        install_path or _selfhosted_terminal_launch_agent_path(installed.home)
+    ).expanduser().resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    Path(payload["StandardOutPath"]).parent.mkdir(parents=True, exist_ok=True)
+    Path(payload["StandardErrorPath"]).parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(render_launch_agent_plist(payload))
+    return {
+        "status": "written",
+        "label": SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL,
+        "plist_path": str(destination),
+        "stdout_log": payload["StandardOutPath"],
+        "stderr_log": payload["StandardErrorPath"],
+        "program_arguments": payload["ProgramArguments"],
+    }
+
+
+def install_selfhosted_terminal_launch_agent(
+    installed: InstalledRemodexPaths,
+    *,
+    public_relay_base_url: str,
+    relay_host: str = "0.0.0.0",
+    relay_port: int = 8787,
+    base_dir: Path | None = None,
+    install_path: Path | None = None,
+    stdout_log: Path | None = None,
+    stderr_log: Path | None = None,
+    bootstrap: bool = False,
+    extra_ca_common_names: list[str] | None = None,
+) -> dict[str, Any]:
+    result = write_selfhosted_terminal_launch_agent_file(
+        installed,
+        public_relay_base_url=public_relay_base_url,
+        relay_host=relay_host,
+        relay_port=relay_port,
+        base_dir=base_dir,
+        install_path=install_path,
+        stdout_log=stdout_log,
+        stderr_log=stderr_log,
+        extra_ca_common_names=extra_ca_common_names,
+    )
+    if bootstrap:
+        destination = Path(result["plist_path"])
+        domain = f"gui/{os.getuid()}"
+        subprocess.run(["launchctl", "bootout", domain, str(destination)], check=False, capture_output=True, text=True)
+        subprocess.run(["launchctl", "bootstrap", domain, str(destination)], check=True)
+        subprocess.run(["launchctl", "kickstart", "-k", f"{domain}/{SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL}"], check=True)
+        result["status"] = "installed"
+        result["bootstrapped"] = True
+    return result
+
+
+def uninstall_selfhosted_terminal_launch_agent(
+    *,
+    home: str | None = None,
+    install_path: Path | None = None,
+    bootout: bool = True,
+) -> dict[str, Any]:
+    destination = (
+        install_path or _selfhosted_terminal_launch_agent_path(Path(home) if home else None)
+    ).expanduser().resolve()
+    bootout_ran = False
+    if bootout:
+        domain = f"gui/{os.getuid()}"
+        subprocess.run(["launchctl", "bootout", domain, str(destination)], check=False, capture_output=True, text=True)
+        bootout_ran = True
+    existed = destination.exists()
+    if existed:
+        destination.unlink()
+    return {
+        "status": "removed" if existed else "not_found",
+        "label": SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL,
+        "plist_path": str(destination),
+        "bootout_attempted": bootout_ran,
+    }
+
+
+def selfhosted_terminal_launch_agent_status(
+    *,
+    home: str | None = None,
+    install_path: Path | None = None,
+) -> dict[str, Any]:
+    destination = (
+        install_path or _selfhosted_terminal_launch_agent_path(Path(home) if home else None)
+    ).expanduser().resolve()
+    domain = f"gui/{os.getuid()}/{SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL}"
+    completed = subprocess.run(
+        ["launchctl", "print", domain],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return {
+        "label": SELFHOSTED_TERMINAL_LAUNCH_AGENT_LABEL,
         "plist_path": str(destination),
         "plist_exists": destination.exists(),
         "loaded": completed.returncode == 0,

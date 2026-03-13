@@ -43,11 +43,14 @@ from .shortcuts import (
 from .remodex_upstream import (
     build_patched_runtime,
     install_launch_agent,
+    install_selfhosted_terminal_launch_agent,
     launch_agent_status,
     resolve_installed_remodex,
     run_selfhosted_remodex,
     run_upstream_remodex,
+    selfhosted_terminal_launch_agent_status,
     uninstall_launch_agent,
+    uninstall_selfhosted_terminal_launch_agent,
 )
 from .ui_probe import parse_probe_output, run_probe
 from .validation import build_actuation_request, build_approval_event
@@ -336,6 +339,40 @@ def main() -> int:
     )
     remodex_status_parser.add_argument("--install-path")
     remodex_status_parser.add_argument("--home")
+
+    remodex_selfhosted_install_parser = subparsers.add_parser(
+        "remodex-selfhosted-install-terminal-launch-agent",
+        help="Install a login LaunchAgent that opens Terminal and runs the self-hosted Remodex QR flow.",
+    )
+    remodex_selfhosted_install_parser.add_argument("--runtime-dir", default="var/generated/remodex-selfhosted")
+    remodex_selfhosted_install_parser.add_argument("--public-relay-base-url", required=True)
+    remodex_selfhosted_install_parser.add_argument("--relay-host", default="0.0.0.0")
+    remodex_selfhosted_install_parser.add_argument("--relay-port", type=int, default=8787)
+    remodex_selfhosted_install_parser.add_argument("--install-path")
+    remodex_selfhosted_install_parser.add_argument("--stdout-log")
+    remodex_selfhosted_install_parser.add_argument("--stderr-log")
+    remodex_selfhosted_install_parser.add_argument("--bootstrap", action="store_true")
+    remodex_selfhosted_install_parser.add_argument("--home")
+    remodex_selfhosted_install_parser.add_argument("--python-path")
+    remodex_selfhosted_install_parser.add_argument("--node-path")
+    remodex_selfhosted_install_parser.add_argument("--codex-path")
+    remodex_selfhosted_install_parser.add_argument("--remodex-bin")
+    remodex_selfhosted_install_parser.add_argument("--extra-ca-cn", action="append", default=[])
+
+    remodex_selfhosted_uninstall_parser = subparsers.add_parser(
+        "remodex-selfhosted-uninstall-terminal-launch-agent",
+        help="Unload and remove the self-hosted Remodex Terminal LaunchAgent.",
+    )
+    remodex_selfhosted_uninstall_parser.add_argument("--install-path")
+    remodex_selfhosted_uninstall_parser.add_argument("--home")
+    remodex_selfhosted_uninstall_parser.add_argument("--no-bootout", action="store_true")
+
+    remodex_selfhosted_status_parser = subparsers.add_parser(
+        "remodex-selfhosted-terminal-launch-agent-status",
+        help="Inspect whether the self-hosted Remodex Terminal LaunchAgent is installed and loaded.",
+    )
+    remodex_selfhosted_status_parser.add_argument("--install-path")
+    remodex_selfhosted_status_parser.add_argument("--home")
 
     args = parser.parse_args()
 
@@ -725,6 +762,49 @@ def main() -> int:
     if args.command == "remodex-launch-agent-status":
         _json_print(
             launch_agent_status(
+                home=args.home,
+                install_path=Path(args.install_path) if args.install_path else None,
+            )
+        )
+        return 0
+
+    if args.command == "remodex-selfhosted-install-terminal-launch-agent":
+        installed = resolve_installed_remodex(
+            home=args.home,
+            python_path=args.python_path,
+            node_path=args.node_path,
+            codex_path=args.codex_path,
+            remodex_bin=args.remodex_bin,
+        )
+        _json_print(
+            install_selfhosted_terminal_launch_agent(
+                installed,
+                public_relay_base_url=args.public_relay_base_url,
+                relay_host=args.relay_host,
+                relay_port=args.relay_port,
+                base_dir=Path(args.runtime_dir),
+                install_path=Path(args.install_path) if args.install_path else None,
+                stdout_log=Path(args.stdout_log) if args.stdout_log else None,
+                stderr_log=Path(args.stderr_log) if args.stderr_log else None,
+                bootstrap=args.bootstrap,
+                extra_ca_common_names=args.extra_ca_cn,
+            )
+        )
+        return 0
+
+    if args.command == "remodex-selfhosted-uninstall-terminal-launch-agent":
+        _json_print(
+            uninstall_selfhosted_terminal_launch_agent(
+                home=args.home,
+                install_path=Path(args.install_path) if args.install_path else None,
+                bootout=not args.no_bootout,
+            )
+        )
+        return 0
+
+    if args.command == "remodex-selfhosted-terminal-launch-agent-status":
+        _json_print(
+            selfhosted_terminal_launch_agent_status(
                 home=args.home,
                 install_path=Path(args.install_path) if args.install_path else None,
             )

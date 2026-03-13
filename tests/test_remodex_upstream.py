@@ -12,6 +12,8 @@ from cra.remodex_upstream import (
     extract_quick_tunnel_url,
     launch_agent_payload,
     normalize_public_relay_base_url,
+    selfhosted_terminal_command,
+    selfhosted_terminal_launch_agent_payload,
 )
 
 
@@ -183,6 +185,114 @@ class RemodexUpstreamTests(unittest.TestCase):
     def test_extract_quick_tunnel_url_ignores_terms_url(self) -> None:
         line = "INF Terms of Use (https://www.cloudflare.com/website-terms/), and more text"
         self.assertIsNone(extract_quick_tunnel_url(line))
+
+    def test_selfhosted_terminal_command_includes_relay_url_and_absolute_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            installed = InstalledRemodexPaths(
+                home=temp_root / "home",
+                python_path=Path("/opt/homebrew/bin/python3"),
+                node_path=Path("/Users/test/.nvm/versions/node/v22.22.1/bin/node"),
+                codex_path=Path("/Users/test/.nvm/versions/node/v22.22.1/bin/codex"),
+                remodex_bin=Path("/Users/test/.nvm/versions/node/v22.22.1/bin/remodex"),
+                remodex_package_dir=temp_root / "pkg",
+                version="1.1.5",
+            )
+            runtime_root = temp_root / "runtime"
+            (runtime_root / "remodex" / "bin").mkdir(parents=True)
+            (runtime_root / "remodex" / "bin" / "remodex.js").write_text("", encoding="utf-8")
+            (runtime_root / "runtime-metadata.json").write_text(
+                json.dumps(
+                    {
+                        "source_package_dir": str(installed.remodex_package_dir),
+                        "source_version": "1.1.5",
+                        "patched_file": "src/secure-device-state.js",
+                        "patch_source_path": str(Path(__file__).resolve()),
+                        "patch_sha256": "x",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            from cra import remodex_upstream as module
+
+            original_patch_source = module._patch_source_path
+            original_runtime_metadata_matches = module._runtime_metadata_matches
+            original_build_extra_ca_bundle = module.build_extra_ca_bundle
+            module._patch_source_path = lambda: Path(__file__).resolve()
+            module._runtime_metadata_matches = lambda runtime, current: True
+            module.build_extra_ca_bundle = lambda runtime, common_names: runtime.certs_dir / "extra-ca-bundle.pem"
+            try:
+                command = selfhosted_terminal_command(
+                    installed,
+                    base_dir=runtime_root,
+                    public_relay_base_url="http://10.97.52.64:8787",
+                    relay_host="0.0.0.0",
+                )
+            finally:
+                module._patch_source_path = original_patch_source
+                module._runtime_metadata_matches = original_runtime_metadata_matches
+                module.build_extra_ca_bundle = original_build_extra_ca_bundle
+
+            self.assertIn("remodex-selfhosted-run", command)
+            self.assertIn("http://10.97.52.64:8787", command)
+            self.assertIn("--relay-host 0.0.0.0", command)
+            self.assertIn(str(installed.python_path), command)
+            self.assertIn("exec ${SHELL:-/bin/zsh} -l", command)
+
+    def test_selfhosted_terminal_launch_agent_payload_opens_terminal_in_aqua_session(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            installed = InstalledRemodexPaths(
+                home=temp_root / "home",
+                python_path=Path("/opt/homebrew/bin/python3"),
+                node_path=Path("/Users/test/.nvm/versions/node/v22.22.1/bin/node"),
+                codex_path=Path("/Users/test/.nvm/versions/node/v22.22.1/bin/codex"),
+                remodex_bin=Path("/Users/test/.nvm/versions/node/v22.22.1/bin/remodex"),
+                remodex_package_dir=temp_root / "pkg",
+                version="1.1.5",
+            )
+            runtime_root = temp_root / "runtime"
+            (runtime_root / "remodex" / "bin").mkdir(parents=True)
+            (runtime_root / "remodex" / "bin" / "remodex.js").write_text("", encoding="utf-8")
+            (runtime_root / "runtime-metadata.json").write_text(
+                json.dumps(
+                    {
+                        "source_package_dir": str(installed.remodex_package_dir),
+                        "source_version": "1.1.5",
+                        "patched_file": "src/secure-device-state.js",
+                        "patch_source_path": str(Path(__file__).resolve()),
+                        "patch_sha256": "x",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            from cra import remodex_upstream as module
+
+            original_patch_source = module._patch_source_path
+            original_runtime_metadata_matches = module._runtime_metadata_matches
+            original_build_extra_ca_bundle = module.build_extra_ca_bundle
+            module._patch_source_path = lambda: Path(__file__).resolve()
+            module._runtime_metadata_matches = lambda runtime, current: True
+            module.build_extra_ca_bundle = lambda runtime, common_names: runtime.certs_dir / "extra-ca-bundle.pem"
+            try:
+                payload = selfhosted_terminal_launch_agent_payload(
+                    installed,
+                    base_dir=runtime_root,
+                    public_relay_base_url="http://10.97.52.64:8787",
+                )
+            finally:
+                module._patch_source_path = original_patch_source
+                module._runtime_metadata_matches = original_runtime_metadata_matches
+                module.build_extra_ca_bundle = original_build_extra_ca_bundle
+
+            self.assertEqual(payload["Label"], "com.stevespivak.remodex.selfhosted.terminal")
+            self.assertEqual(payload["ProgramArguments"][0], "/usr/bin/open")
+            self.assertEqual(payload["ProgramArguments"][1:3], ["-a", "Terminal"])
+            self.assertTrue(payload["ProgramArguments"][3].endswith("launch-remodex-selfhosted.command"))
+            self.assertEqual(payload["LimitLoadToSessionType"], ["Aqua"])
+            self.assertFalse(payload["KeepAlive"])
 
 
 if __name__ == "__main__":
